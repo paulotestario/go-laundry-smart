@@ -15,6 +15,10 @@
     background: #0973C1; color: #fff; border: 0; border-radius: 8px;
     padding: 12px 28px; font-size: 16px; font-weight: 600; cursor: pointer;
   }
+  h2.group {
+    text-align: center; color: #001642; margin: 28px 0 16px;
+    font-size: 20px; text-transform: uppercase; letter-spacing: 2px;
+  }
   .cards { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; }
   .card {
     width: 320px;
@@ -30,9 +34,16 @@
     color: #fff;
     padding: 14px 10px 12px;
   }
+  .card.secadora header { background: #0973C1; }
+  .card.secadora { border-color: #0973C1; }
   .card header .brand {
     font-size: 13px; letter-spacing: 2px; text-transform: uppercase;
     color: #5BC8F5; font-weight: 700;
+  }
+  .card.secadora header .brand { color: #001642; }
+  .card header .tipo {
+    font-size: 13px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1px; margin-top: 4px; opacity: .85;
   }
   .card header .machine {
     font-size: 28px; font-weight: 800; margin-top: 2px;
@@ -49,18 +60,22 @@
     body { background: #fff; padding: 0; }
     .toolbar { display: none; }
     .cards { gap: 10mm; }
+    h2.group { page-break-before: auto; }
   }
 </style>
 </head>
 <body>
   <div class="toolbar"><button onclick="window.print()">🖨️ Imprimir</button></div>
+
+  <h2 class="group">Lavadoras</h2>
   <div class="cards">
     <div class="card">
       <header>
         <div class="brand">Go Laundry Smart</div>
         <div class="machine">Máquina 1</div>
+        <div class="tipo">🫧 Lavadora</div>
       </header>
-      <img src="qr-maquina-1.png" alt="QR code da Máquina 1">
+      <img src="qr-maquina-1.png" alt="QR code da Máquina 1 (lavadora)">
       <div class="hint">Escaneie e acompanhe sua lavagem pelo celular</div>
       <div class="sub">Aponte a câmera do celular para o código acima</div>
     </div>
@@ -68,8 +83,9 @@
       <header>
         <div class="brand">Go Laundry Smart</div>
         <div class="machine">Máquina 2</div>
+        <div class="tipo">🫧 Lavadora</div>
       </header>
-      <img src="qr-maquina-2.png" alt="QR code da Máquina 2">
+      <img src="qr-maquina-2.png" alt="QR code da Máquina 2 (lavadora)">
       <div class="hint">Escaneie e acompanhe sua lavagem pelo celular</div>
       <div class="sub">Aponte a câmera do celular para o código acima</div>
     </div>
@@ -77,9 +93,44 @@
       <header>
         <div class="brand">Go Laundry Smart</div>
         <div class="machine">Máquina 3</div>
+        <div class="tipo">🫧 Lavadora</div>
       </header>
-      <img src="qr-maquina-3.png" alt="QR code da Máquina 3">
+      <img src="qr-maquina-3.png" alt="QR code da Máquina 3 (lavadora)">
       <div class="hint">Escaneie e acompanhe sua lavagem pelo celular</div>
+      <div class="sub">Aponte a câmera do celular para o código acima</div>
+    </div>
+  </div>
+
+  <h2 class="group">Secadoras</h2>
+  <div class="cards">
+    <div class="card secadora">
+      <header>
+        <div class="brand">Go Laundry Smart</div>
+        <div class="machine">Máquina 1B</div>
+        <div class="tipo">🌀 Secadora</div>
+      </header>
+      <img src="qr-maquina-1b.png" alt="QR code da Máquina 1B (secadora)">
+      <div class="hint">Escaneie e acompanhe sua secagem pelo celular</div>
+      <div class="sub">Aponte a câmera do celular para o código acima</div>
+    </div>
+    <div class="card secadora">
+      <header>
+        <div class="brand">Go Laundry Smart</div>
+        <div class="machine">Máquina 2B</div>
+        <div class="tipo">🌀 Secadora</div>
+      </header>
+      <img src="qr-maquina-2b.png" alt="QR code da Máquina 2B (secadora)">
+      <div class="hint">Escaneie e acompanhe sua secagem pelo celular</div>
+      <div class="sub">Aponte a câmera do celular para o código acima</div>
+    </div>
+    <div class="card secadora">
+      <header>
+        <div class="brand">Go Laundry Smart</div>
+        <div class="machine">Máquina 3B</div>
+        <div class="tipo">🌀 Secadora</div>
+      </header>
+      <img src="qr-maquina-3b.png" alt="QR code da Máquina 3B (secadora)">
+      <div class="hint">Escaneie e acompanhe sua secagem pelo celular</div>
       <div class="sub">Aponte a câmera do celular para o código acima</div>
     </div>
   </div>
