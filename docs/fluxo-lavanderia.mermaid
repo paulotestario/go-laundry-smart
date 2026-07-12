@@ -1,0 +1,30 @@
+sequenceDiagram
+    participant C as Cliente
+    participant P as API de Pagamento
+    participant S as Seu Backend
+    participant A as Arduino/Relé
+    participant DB as Banco de Dados
+    participant Q as QR Code / Página do cliente
+
+    Note over C,DB: 1. PAGAMENTO E ACIONAMENTO (fonte da verdade)
+    C->>P: Realiza pagamento (ex: R$80)
+    P->>S: Webhook/pulso de pagamento (valor, timestamp, ref. da central)
+    S->>S: Decide qual máquina será liberada (regra de negócio: fila, seleção, etc)
+    S->>A: Envia comando "destravar máquina B"
+    A->>A: Aciona relé da máquina B
+    A->>S: Confirma acionamento (opcional, para log de hardware)
+    S->>DB: GRAVA sessão: {maquina: "B", inicio: 10:10:00, duracao: 50min, pagamento_id: xxx}
+
+    Note over C,DB: 2. GERAÇÃO DO QR CODE (vinculado à sessão, não ao pagamento cru)
+    S->>Q: Gera QR code contendo maquina_id = "B" (+ opcionalmente sessao_id)
+    Q-->>C: Cliente recebe/imprime/vê o QR code na máquina B
+
+    Note over C,DB: 3. CONSULTA (quando o cliente quiser monitorar)
+    C->>Q: Escaneia QR code da máquina B
+    Q->>S: GET /status?maquina=B
+    S->>DB: SELECT * FROM sessoes WHERE maquina='B' ORDER BY inicio DESC LIMIT 1
+    DB-->>S: {inicio: 10:10, duracao: 50min}
+    S-->>Q: término calculado = 11:00, faltam 30min
+    Q-->>C: Mostra cronômetro / instala atalho com timer até 11:00
+
+    Note over C,DB: Sem ambiguidade: a máquina já foi decidida no passo 1,<br/>nunca é "adivinhada" comparando listas depois.

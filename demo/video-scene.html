@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{
+    width:100%;height:100%;
+    background:radial-gradient(120% 100% at 50% 0%, #16324f 0%, #060d18 65%);
+    display:flex;align-items:center;justify-content:center;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    overflow:hidden;
+  }
+
+  /* ---------- PHONE FRAME ---------- */
+  .phone{
+    width:390px;height:820px;
+    background:#0b0b0f;
+    border-radius:56px;
+    padding:14px;
+    box-shadow:0 40px 100px rgba(0,0,0,.6), inset 0 0 0 2px #2a2a30;
+    position:relative;
+  }
+  .screen{
+    width:100%;height:100%;
+    background:#000;
+    border-radius:42px;
+    overflow:hidden;
+    position:relative;
+  }
+  .notch{
+    position:absolute;
+    top:0;left:50%;
+    transform:translateX(-50%);
+    width:120px;height:28px;
+    background:#0b0b0f;
+    border-radius:0 0 18px 18px;
+    z-index:50;
+  }
+  .status-bar{
+    position:absolute;
+    top:0;left:0;right:0;
+    height:46px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:0 26px;
+    color:#fff;
+    font-size:14px;
+    font-weight:700;
+    z-index:40;
+    letter-spacing:.02em;
+  }
+  .status-bar .icons{ display:flex; gap:5px; align-items:center; }
+
+  /* ================= SCENE A: CAMERA / SCANNER ================= */
+  .scene-camera{
+    position:absolute; inset:0;
+    background:
+      radial-gradient(120% 70% at 50% 0%, rgba(255,255,255,.05), transparent 60%),
+      linear-gradient(180deg, #0d1b2e 0%, #060c15 100%);
+    animation: cameraFadeOut .45s ease forwards;
+    animation-delay: 2.35s;
+  }
+  .panel-mock{
+    position:absolute;
+    left:50%; top:50%;
+    transform:translate(-50%,-46%);
+    width:280px;
+    background:linear-gradient(160deg,#1c2530,#0e141c);
+    border-radius:20px;
+    padding:26px 22px 30px;
+    box-shadow:0 30px 60px rgba(0,0,0,.5), inset 0 0 0 1px rgba(255,255,255,.06);
+  }
+  .panel-mock .led-row{
+    display:flex; gap:10px; margin-bottom:18px;
+  }
+  .panel-mock .led{
+    width:9px;height:9px;border-radius:50%;
+    background:#16A2E0;
+    box-shadow:0 0 8px #16A2E0;
+  }
+  .panel-mock .led:nth-child(2){ background:#3a4655; box-shadow:none; }
+  .panel-mock .led:nth-child(3){ background:#3a4655; box-shadow:none; }
+  .qr-sticker{
+    background:#fff;
+    border-radius:12px;
+    padding:14px;
+    width:180px;
+    margin:0 auto;
+    box-shadow:0 10px 24px rgba(0,0,0,.35);
+  }
+  .qr-sticker img{ width:100%; display:block; }
+  .qr-caption{
+    text-align:center;
+    color:#8CA3BE;
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    margin-top:12px;
+  }
+  .qr-caption strong{ color:#fff; display:block; font-size:13px; margin-bottom:2px; letter-spacing:.01em;}
+
+  .viewfinder{
+    position:absolute;
+    left:50%; top:50%;
+    transform:translate(-50%,-46%);
+    width:220px; height:220px;
+    z-index:20;
+  }
+  .corner{
+    position:absolute;
+    width:34px; height:34px;
+    border:4px solid #5BC8F5;
+  }
+  .corner.tl{ top:0; left:0; border-right:none; border-bottom:none; border-radius:10px 0 0 0;}
+  .corner.tr{ top:0; right:0; border-left:none; border-bottom:none; border-radius:0 10px 0 0;}
+  .corner.bl{ bottom:0; left:0; border-right:none; border-top:none; border-radius:0 0 0 10px;}
+  .corner.br{ bottom:0; right:0; border-left:none; border-top:none; border-radius:0 0 10px 0;}
+  .corner{ animation: none; }
+  .viewfinder.detected .corner{
+    animation: cornerPulse .4s ease forwards;
+    animation-delay: 2.0s;
+  }
+
+  .scan-line{
+    position:absolute;
+    left:6px; right:6px;
+    height:2px;
+    background:linear-gradient(90deg, transparent, #5BC8F5, transparent);
+    box-shadow:0 0 10px 2px rgba(91,200,245,.8);
+    animation: scanMove 1.1s ease-in-out infinite;
+  }
+
+  .scan-hint{
+    position:absolute;
+    left:0; right:0;
+    top:calc(50% + 130px);
+    text-align:center;
+    color:#B9CBE6;
+    font-size:13px;
+    font-weight:600;
+    opacity:.9;
+  }
+  .scan-hint .dot-anim{
+    display:inline-block;
+    animation: dotFade 1.2s steps(1) infinite;
+  }
+
+  .detect-flash{
+    position:absolute; inset:0;
+    background:#fff;
+    opacity:0;
+    z-index:30;
+    animation: flashPop .3s ease forwards;
+    animation-delay: 2.35s;
+  }
+
+  /* ================= SCENE B: BROWSER CHROME ================= */
+  .browser-bar{
+    position:absolute;
+    top:46px; left:0; right:0;
+    height:44px;
+    background:#F4F7FA;
+    display:flex;
+    align-items:center;
+    padding:0 14px;
+    gap:8px;
+    z-index:35;
+    opacity:0;
+    animation: chromeIn .35s ease forwards;
+    animation-delay: 2.55s;
+    border-bottom:1px solid #E1E8EF;
+  }
+  .browser-bar .lock{ font-size:12px; color:#6b7686; }
+  .browser-bar .url{
+    flex:1;
+    background:#E9EEF3;
+    border-radius:9px;
+    padding:7px 10px;
+    font-size:12.5px;
+    color:#2b3648;
+    font-weight:600;
+    white-space:nowrap;
+    overflow:hidden;
+  }
+  .browser-bar .url span{
+    display:inline-block;
+    overflow:hidden;
+    white-space:nowrap;
+    width:0;
+    animation: typeUrl .5s steps(28,end) forwards;
+    animation-delay: 2.6s;
+  }
+  .loading-bar{
+    position:absolute;
+    top:89px; left:0;
+    height:2px;
+    background:linear-gradient(90deg,#5BC8F5,#0973C1);
+    width:0%;
+    z-index:36;
+    animation: loadProgress .5s ease forwards;
+    animation-delay: 2.65s;
+  }
+
+  /* ================= SCENE C: APP (IFRAME) ================= */
+  .scene-web{
+    position:absolute;
+    top:90px; left:0; right:0; bottom:0;
+    opacity:0;
+    transform:translateY(16px) scale(.98);
+    animation: webIn .5s cubic-bezier(.2,.8,.2,1) forwards;
+    animation-delay: 3.05s;
+    background:#EFF7FC;
+  }
+  .scene-web iframe{
+    width:100%; height:100%;
+    border:none;
+    margin-top:0;
+  }
+
+  /* ================= KEYFRAMES ================= */
+  @keyframes scanMove{
+    0%{ top:14px; }
+    50%{ top:198px; }
+    100%{ top:14px; }
+  }
+  @keyframes dotFade{
+    0%{ opacity:.3; } 50%{ opacity:1; } 100%{ opacity:.3; }
+  }
+  @keyframes cornerPulse{
+    0%{ border-color:#5BC8F5; transform:scale(1); }
+    40%{ border-color:#3EE08A; transform:scale(1.08); }
+    100%{ border-color:#3EE08A; transform:scale(1); }
+  }
+  @keyframes flashPop{
+    0%{ opacity:0; }
+    50%{ opacity:.85; }
+    100%{ opacity:0; }
+  }
+  @keyframes cameraFadeOut{
+    to{ opacity:0; visibility:hidden; }
+  }
+  @keyframes chromeIn{
+    to{ opacity:1; }
+  }
+  @keyframes typeUrl{
+    to{ width:100%; }
+  }
+  @keyframes loadProgress{
+    0%{ width:0%; }
+    100%{ width:100%; }
+  }
+  @keyframes webIn{
+    to{ opacity:1; transform:translateY(0) scale(1); }
+  }
+</style>
+</head>
+<body>
+
+  <div class="phone">
+    <div class="screen">
+      <div class="notch"></div>
+
+      <div class="status-bar">
+        <span>10:12</span>
+        <span class="icons">••• 5G 🔋</span>
+      </div>
+
+      <!-- SCENE A: câmera escaneando -->
+      <div class="scene-camera">
+        <div class="panel-mock">
+          <div class="led-row">
+            <div class="led"></div><div class="led"></div><div class="led"></div>
+          </div>
+          <div class="qr-sticker">
+            <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAZoAAAGaAQAAAAAefbjOAAADMUlEQVR4nO2cTWrkMBCFX40MvVTDHCBH6b7ZkCPNDeyj5AbSMiDzZlEqyR3IQBLS7silhcE/H8hY/VSvVGohPtyWXx9nAIcccuiHQllqu+YJImcAyxnAIiIAVhGRCfbQdO/uOXRfCGQKJEnicntALAAQiEsKek0fnh/8nRz6OlR/+1gFyCIqD5cEkAng8xlQLbnu0j2H9oLyBM4AVBSQTwTiq8hV1WLv7jm0C7ScAwGswjkWjSg45+lRuufQd0M3cUQK5kVjAefItwGGxxHHgFZ1EXpBo8iXE+XPywS55glAntR6qBP5Ce/k0GchcNMSYDaDJFn0rp1ac40YHDIVqAKQRTRwWOSkkwiZmoxkz0cMDoFkNRJmM9CUoZjrQKgKgugaMThUI8sZoU4OMwC1GRpeot7Vg88aw0PY/vb1m29zD5xjMyE6SnxEDA7ZDAHohFGdZrJ0ZfWmVTIAuPscHKofXnMPKbAHDriw6PxRxSOZMfERMTJUI8sLS9UIWMa6BhhtOpkBVRAfEUNDOiKqFESyBg40m9GXPTfB54O/k0NfgVqGyjSiDYGaq2ry0Myoj4ihoU3uoS9k1NgCPVvh+YjDQPbNm5FoatFths4kiLbc5SNiZKi5zzeJqB5ths1gcI0YH7IMldnNbjhq9NCzVq4Rh4A2s8ZWLWLB1mF0BXGNGB2qGtHTlegWNAE9d61Pu0YMD22y2NVcpLDxnDdLYMFnjQNAlqECLJRkzWf3w2aly0fE8FBLVpcWUVjCCrbs2dc1fEQcAooFQD5R5GwfvhZkA1ieCuQK6GGP7jm0E7QKqaW2IlZaZ9W4iK/C5ydSt//9mHdy6DOtl0H0fIStfPewAkDb7+ezxtDQ21rsXi5h7pOtztKr6g4C9b3hlo2SK1bZVkUkjyMOA00AgtbICGLRQz1FgKhQACDyKkBMd+2eQztBdW94FiHTKujLHLWttp3L92uMDt1s8Y1lAhAol79T4SKhcBGAy1OZqjzk33ftnkMPAGURzljFoodAVQY9jWXn7jn0zdB7/zFj9RFo6xpMXmd5BKjVRwDbjTr9Lmlr4L5f4xCQ+L8XOuSQQ/9p/wC7Gzkcqbj7ZAAAAABJRU5ErkJggg==" alt="QR Code">
+          </div>
+          <div class="qr-caption"><strong>MÁQUINA 1</strong>Escaneie para acompanhar</div>
+        </div>
+
+        <div class="viewfinder detected">
+          <div class="corner tl"></div>
+          <div class="corner tr"></div>
+          <div class="corner bl"></div>
+          <div class="corner br"></div>
+          <div class="scan-line"></div>
+        </div>
+
+        <div class="scan-hint">Aponte a câmera para o QR Code<span class="dot-anim">...</span></div>
+        <div class="detect-flash"></div>
+      </div>
+
+      <!-- SCENE B: barra do navegador abrindo -->
+      <div class="browser-bar">
+        <span class="lock">🔒</span>
+        <div class="url"><span>golaundrysmart.com.br/maquina1</span></div>
+      </div>
+      <div class="loading-bar"></div>
+
+      <!-- SCENE C: app real carregado num iframe -->
+      <div class="scene-web">
+        <iframe src="index.html?maquina=1&tipo=lavagem&duracao=50" scrolling="no"></iframe>
+      </div>
+
+    </div>
+  </div>
+
+</body>
+</html>

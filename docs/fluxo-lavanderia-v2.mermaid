@@ -1,0 +1,34 @@
+sequenceDiagram
+    participant C as Cliente
+    participant D as Dispositivo (na máquina, ex: MAQ-01)
+    participant P as Central de Pagamento
+    participant S as Seu Backend
+    participant DB as Banco de Dados
+    participant Q as QR Code / Página do cliente
+
+    Note over C,DB: 1. PAGAMENTO NA PRÓPRIA MÁQUINA (identificação nasce aqui)
+    C->>D: Realiza pagamento diretamente no dispositivo da máquina MAQ-01
+    D->>P: Processa pagamento (valor, horário)
+    P->>D: Confirma pagamento
+    D->>S: Envia pulso: {maquina: "MAQ-01", timestamp: 10:10:00, valor: 80.00}
+    Note right of D: A máquina já vem identificada<br/>porque o dispositivo É a máquina.<br/>Não precisa casar nada por valor/horário.
+
+    S->>S: Aciona relé/liberação da MAQ-01
+    S->>DB: GRAVA sessão: {maquina: "MAQ-01", nome_exibicao: "Máquina 1",<br/>tipo: "lavadora", conjunto: 1, inicio: 10:10, duracao: 50min}
+
+    Note over C,DB: 2. QR CODE (fixo na máquina ou impresso)
+    Q-->>C: Cliente vê QR code da Máquina 1 (id="MAQ-01")
+
+    Note over C,DB: 3. CONSULTA / MONITORAMENTO
+    C->>Q: Escaneia QR code da Máquina 1
+    Q->>S: GET /status?maquina=MAQ-01
+    S->>DB: SELECT * FROM sessoes WHERE maquina='MAQ-01' ORDER BY inicio DESC LIMIT 1
+    DB-->>S: {inicio: 10:10, duracao: 50min}
+    S-->>Q: término = 11:00, faltam 30min
+    Q-->>C: Cronômetro / atalho instalado no celular
+
+    Note over C,DB: 4. (OPCIONAL) FLUXO LAVA E SECA
+    C->>D: Ao terminar a lavagem, cliente paga na MAQ-01-S (secadora irmã)
+    D->>S: Pulso: {maquina: "MAQ-01-S", timestamp: 11:00, valor: 60.00}
+    S->>DB: GRAVA sessão: {maquina: "MAQ-01-S", conjunto: 1, tipo: "secadora", inicio: 11:00, duracao: 40min}
+    Note right of S: Como MAQ-01-S tem o mesmo campo<br/>"conjunto" da MAQ-01, é possível no futuro<br/>sugerir/avisar automaticamente o cliente<br/>sobre a secadora do mesmo conjunto.
