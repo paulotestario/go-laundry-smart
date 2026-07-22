@@ -74,6 +74,19 @@
   .form-inline .row{align-items:flex-end;}
   .hint{font-size:12px; color:var(--muted); margin-top:10px;}
   .filial-head{font-size:13px; color:var(--muted); margin-bottom:2px;}
+  .qr-modal{position:fixed; inset:0; background:rgba(0,22,66,.55); display:flex; align-items:center; justify-content:center; padding:20px; z-index:50;}
+  .qr-box{background:#fff; border-radius:20px; padding:24px; max-width:340px; width:100%; text-align:center;}
+  .qr-title{font-weight:800; font-size:16px; margin-bottom:14px;}
+  .qr-render{display:flex; justify-content:center;}
+  .qr-render svg{width:240px; height:240px;}
+  .qr-url{font-size:11px; color:var(--muted); word-break:break-all; margin:10px 0 16px;}
+  .qr-actions{display:flex; gap:8px; justify-content:center;}
+  @media print{
+    body *{visibility:hidden;}
+    #qrModal, #qrModal *{visibility:visible;}
+    #qrModal{position:absolute; inset:auto; background:#fff; padding:0;}
+    .qr-actions{display:none;}
+  }
 </style>
 </head>
 <body>
@@ -153,7 +166,21 @@
   </main>
 </div>
 
+<!-- Modal de QR code por máquina -->
+<div id="qrModal" class="qr-modal hidden">
+  <div class="qr-box">
+    <div class="qr-title" id="qrTitle"></div>
+    <div class="qr-render" id="qrRender"></div>
+    <div class="qr-url" id="qrUrl"></div>
+    <div class="qr-actions">
+      <button class="btn sm" onclick="window.print()">Imprimir</button>
+      <button class="btn sec sm" id="qrClose">Fechar</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script>
   const SUPABASE_URL = "https://mreekkooyrhpwkqhldrt.supabase.co";
   const SUPABASE_KEY = "sb_publishable_vUxewmHXiRyn77WcjGdWmQ_4tGTq0JU";
@@ -309,22 +336,36 @@
   };
 
   async function loadMaquinas(){
-    const { data, error } = await sb.from("maquinas").select("*").eq("filial_id", currentFilialId).order("tipo").order("nome_exibicao");
     const list = $("maquinaList");
+    const { data, error } = await sb.from("maquinas").select("*").eq("filial_id", currentFilialId).order("tipo").order("nome_exibicao");
     if(error){ list.innerHTML = '<div class="empty">Erro: '+error.message+'</div>'; return; }
     if(!data.length){ list.innerHTML = '<div class="empty">Nenhuma máquina nesta filial ainda.</div>'; return; }
+    // sessões ativas para mostrar o estado de cada máquina
+    const ids = data.map(m => m.id);
+    const { data: sess } = await sb.from("sessoes").select("maquina_id,inicio,duracao_min").eq("status","ativa").in("maquina_id", ids);
+    const ativa = {}; (sess||[]).forEach(s => { ativa[s.maquina_id] = s; });
     list.innerHTML = "";
     data.forEach(m => {
       const div = document.createElement("div");
       div.className = "item";
       const tag = m.tipo === "lavadora" ? '<span class="tag lav">Lavadora</span>' : '<span class="tag sec">Secadora</span>';
+      const emUso = ativa[m.id];
+      const estado = emUso
+        ? '<span style="color:var(--ok);font-weight:800">&nbsp;● Em uso</span>'
+        : '<span style="color:var(--muted)">&nbsp;○ Livre</span>';
       const meta = [m.conjunto ? "Conjunto "+m.conjunto : null, m.duracao_min+" min", m.id_interno].filter(Boolean).join(" · ");
       div.innerHTML =
-        '<div class="info"><div class="name">'+tag+' &nbsp;'+esc(m.nome_exibicao)+'</div><div class="meta">'+esc(meta)+'</div></div>'+
+        '<div class="info"><div class="name">'+tag+' &nbsp;'+esc(m.nome_exibicao)+estado+'</div><div class="meta">'+esc(meta)+'</div></div>'+
         '<div class="acts">'+
+          '<button class="btn sec sm" data-act="qr">QR</button>'+
+          (emUso ? '<button class="btn sec sm" data-act="fim">Finalizar</button>'
+                 : '<button class="btn sm" data-act="ini">Iniciar</button>')+
           '<button class="btn sec sm" data-act="edit">Editar</button>'+
           '<button class="btn danger sm" data-act="del">Excluir</button>'+
         '</div>';
+      div.querySelector('[data-act="qr"]').onclick = () => showQR(m);
+      if(emUso) div.querySelector('[data-act="fim"]').onclick = () => finalizarCiclo(m);
+      else div.querySelector('[data-act="ini"]').onclick = () => iniciarCiclo(m);
       div.querySelector('[data-act="edit"]').onclick = () => {
         editMaquinaId = m.id;
         $("mNome").value = m.nome_exibicao; $("mTipo").value = m.tipo;
@@ -340,6 +381,30 @@
       list.appendChild(div);
     });
   }
+
+  // Inicia um ciclo (teste manual — no futuro isso será disparado pelo pagamento/Arduino)
+  async function iniciarCiclo(m){
+    if(!confirm('Iniciar um ciclo de '+m.duracao_min+' min na máquina '+m.nome_exibicao+'?')) return;
+    const { error } = await sb.from("sessoes").insert({ maquina_id:m.id, duracao_min:m.duracao_min, status:'ativa' });
+    if(error){ alert("Erro: "+error.message); return; }
+    loadMaquinas();
+  }
+  async function finalizarCiclo(m){
+    const { error } = await sb.from("sessoes").update({ status:'finalizada' }).eq("maquina_id", m.id).eq("status","ativa");
+    if(error){ alert("Erro: "+error.message); return; }
+    loadMaquinas();
+  }
+
+  // Mostra o QR code da máquina (aponta para o cronômetro do cliente: /?m=<id>)
+  function showQR(m){
+    const url = location.origin + "/?m=" + m.id;
+    $("qrTitle").textContent = "Máquina " + m.nome_exibicao + " · " + (m.tipo === 'lavadora' ? 'Lavadora' : 'Secadora');
+    $("qrUrl").textContent = url;
+    const qr = qrcode(0, 'H'); qr.addData(url); qr.make();
+    $("qrRender").innerHTML = qr.createSvgTag({ cellSize:6, margin:2, scalable:true });
+    $("qrModal").classList.remove("hidden");
+  }
+  $("qrClose").onclick = () => $("qrModal").classList.add("hidden");
 
   function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 

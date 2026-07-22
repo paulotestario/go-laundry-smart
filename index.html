@@ -262,25 +262,14 @@
     Dúvidas? <a href="https://wa.me/5541999999999" target="_blank">Fale no WhatsApp</a> · @golaundrysmart
   </footer>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
   // ---- CONFIGURAÇÃO DA SESSÃO ----
-  // Em produção, esses dados vêm do backend (via QR code -> /status?maquina=X),
-  // seguindo exatamente o fluxo que desenhamos: pagamento -> acionamento -> sessão gravada.
-  // Aqui, para demonstração, lemos da URL (?maquina=1&tipo=lavagem&inicio=ISO&duracao=50)
-  // e caimos em valores de exemplo se não vierem parâmetros.
-
-  const params = new URLSearchParams(window.location.search);
-  const maquina = params.get('maquina') || '1';
-  const tipo = params.get('tipo') || 'lavagem';
-  const duracaoMin = parseFloat(params.get('duracao')) || 50;
-  const inicioParam = params.get('inicio');
-  const inicio = inicioParam ? new Date(inicioParam) : new Date(Date.now() - 2 * 60 * 1000); // demo: já rodando há 2min
-
-  const totalSeconds = Math.round(duracaoMin * 60);
-  const fimTs = inicio.getTime() + totalSeconds * 1000;
-
-  document.getElementById('machineTag').innerHTML =
-    `<span class="dot"></span> Máquina ${maquina} · ${tipo === 'secagem' ? 'Secagem' : 'Lavagem'}`;
+  // Se a URL trouxer ?m=<id da máquina>, buscamos a máquina e a sessão ativa
+  // no banco (Supabase) via função pública status_maquina. Sem ?m, caímos no
+  // modo demo/legado lendo ?maquina=1&tipo=lavagem&duracao=50 da URL.
+  const SUPA_URL = "https://mreekkooyrhpwkqhldrt.supabase.co";
+  const SUPA_KEY = "sb_publishable_vUxewmHXiRyn77WcjGdWmQ_4tGTq0JU";
 
   const CIRC = 2 * Math.PI * 110; // 691.15
   const ringFg = document.getElementById('ringFg');
@@ -288,6 +277,10 @@
   const timeLabel = document.getElementById('timeLabel');
   const statusText = document.getElementById('statusText');
   const doneBanner = document.getElementById('doneBanner');
+  const machineTag = document.getElementById('machineTag');
+
+  let maquina = '1', tipoLabel = 'Lavagem';
+  let totalSeconds = 0, fimTs = 0, finished = false, timerId = null;
 
   function format(sec){
     const m = Math.floor(sec/60).toString().padStart(2,'0');
@@ -295,7 +288,10 @@
     return `${m}:${s}`;
   }
 
-  let finished = false;
+  function setTag(nome, tipoRaw){
+    tipoLabel = (tipoRaw === 'secagem' || tipoRaw === 'secadora') ? 'Secagem' : 'Lavagem';
+    machineTag.innerHTML = `<span class="dot"></span> Máquina ${nome} · ${tipoLabel}`;
+  }
 
   function tick(){
     const now = Date.now();
@@ -323,8 +319,64 @@
     }
   }
 
-  tick();
-  setInterval(tick, 1000);
+  function startTimer(inicioDate, durMin){
+    totalSeconds = Math.round(durMin * 60);
+    fimTs = inicioDate.getTime() + totalSeconds * 1000;
+    finished = false;
+    doneBanner.style.display = 'none';
+    statusText.innerHTML = `Sua roupa está na ${tipoLabel.toLowerCase()}. Você pode voltar a qualquer momento — vamos te avisar por aqui quando terminar.`;
+    tick();
+    if(timerId) clearInterval(timerId);
+    timerId = setInterval(tick, 1000);
+  }
+
+  function renderIdle(durMin){
+    ringFg.setAttribute('stroke-dasharray', CIRC);
+    ringFg.setAttribute('stroke-dashoffset', CIRC);
+    timeDisplay.textContent = format(Math.round((durMin || 50) * 60));
+    timeLabel.textContent = 'disponível';
+    statusText.innerHTML = `<strong>Máquina livre.</strong> Faça o pagamento no terminal para iniciar o ciclo.`;
+  }
+
+  function renderErro(msg){
+    ringFg.setAttribute('stroke-dasharray', CIRC);
+    ringFg.setAttribute('stroke-dashoffset', CIRC);
+    timeDisplay.textContent = '--:--';
+    timeLabel.textContent = '';
+    statusText.innerHTML = msg;
+  }
+
+  async function init(){
+    const params = new URLSearchParams(window.location.search);
+    const mId = params.get('m');
+    if(mId){
+      if(typeof supabase === 'undefined'){ renderErro('Não foi possível conectar. Verifique sua internet e tente novamente.'); return; }
+      try{
+        const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
+        const { data, error } = await sb.rpc('status_maquina', { p_maquina: mId });
+        if(error || !data || !data.maquina){ renderErro('Máquina não encontrada. Confira o QR code.'); return; }
+        const mq = data.maquina;
+        maquina = mq.nome_exibicao;
+        setTag(maquina, mq.tipo);
+        if(data.sessao && data.sessao.status === 'ativa'){
+          startTimer(new Date(data.sessao.inicio), data.sessao.duracao_min);
+        } else {
+          renderIdle(mq.duracao_min);
+        }
+      }catch(e){ renderErro('Não foi possível carregar os dados da máquina.'); }
+    } else {
+      // modo demo / legado
+      maquina = params.get('maquina') || '1';
+      const tipo = params.get('tipo') || 'lavagem';
+      const duracaoMin = parseFloat(params.get('duracao')) || 50;
+      const inicioParam = params.get('inicio');
+      const inicio = inicioParam ? new Date(inicioParam) : new Date(Date.now() - 2 * 60 * 1000);
+      setTag(maquina, tipo);
+      startTimer(inicio, duracaoMin);
+    }
+  }
+
+  init();
 
   // ---- INSTALAÇÃO NA TELA INICIAL (PWA) ----
   const installCard = document.getElementById('installCard');
