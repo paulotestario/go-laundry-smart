@@ -1,0 +1,10 @@
+{
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "www.golaundrysmart.com.br" }],
+      "destination": "https://golaundrysmart.com.br/:path*",
+      "permanent": true
+    }
+  ]
+}
