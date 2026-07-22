@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Go Laundry Smart — Admin</title>
+<style>
+  :root{
+    --navy-900:#001642; --navy-700:#033165;
+    --blue-600:#0973C1; --blue-400:#16A2E0; --blue-300:#5BC8F5;
+    --bg:#EFF7FC; --white:#fff; --ok:#1FAE6E; --danger:#E5484D;
+    --muted:#5C6B85; --line:#E4EDF5;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    background:radial-gradient(120% 60% at 50% -10%, #eaf6ff 0%, var(--bg) 55%), var(--bg);
+    color:var(--navy-900); min-height:100vh;
+  }
+  a{color:var(--blue-600);}
+  .hidden{display:none !important;}
+  button{font-family:inherit; cursor:pointer;}
+  .btn{
+    border:none; border-radius:12px; padding:11px 18px; font-weight:700; font-size:14px;
+    background:linear-gradient(135deg,var(--blue-400),var(--blue-600)); color:#fff;
+  }
+  .btn:active{transform:scale(.98);}
+  .btn.sec{background:#fff; color:var(--navy-900); border:1.5px solid var(--line);}
+  .btn.danger{background:#fff; color:var(--danger); border:1.5px solid #F3C9CA;}
+  .btn.sm{padding:7px 12px; font-size:13px; border-radius:9px;}
+  input,select{
+    width:100%; padding:11px 13px; border:1.5px solid var(--line); border-radius:11px;
+    font-size:15px; font-family:inherit; background:#fff; color:var(--navy-900);
+  }
+  input:focus,select:focus{outline:none; border-color:var(--blue-400);}
+  label{font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; display:block; margin:0 0 5px;}
+
+  /* ---- Login ---- */
+  #loginView{min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px;}
+  .login-card{width:100%; max-width:380px; background:#fff; border-radius:24px; padding:30px 26px;
+    box-shadow:0 20px 50px -20px rgba(0,22,66,.35);}
+  .login-card img{width:120px; display:block; margin:0 auto 18px;}
+  .login-card h1{font-size:20px; text-align:center; margin:0 0 4px;}
+  .login-card p.sub{text-align:center; color:var(--muted); font-size:13px; margin:0 0 22px;}
+  .field{margin-bottom:14px;}
+  .msg{font-size:13px; padding:10px 12px; border-radius:10px; margin-bottom:14px; display:none;}
+  .msg.err{background:#FDECEC; color:var(--danger); display:block;}
+  .msg.ok{background:#E7F7EF; color:var(--ok); display:block;}
+  .login-actions{display:flex; flex-direction:column; gap:10px; margin-top:4px;}
+  .link-btn{background:none; border:none; color:var(--blue-600); font-weight:700; font-size:13px; text-decoration:underline;}
+
+  /* ---- App ---- */
+  header.top{background:var(--navy-900); color:#fff; padding:14px 20px; display:flex; align-items:center; justify-content:space-between;}
+  header.top .brand{display:flex; align-items:center; gap:10px; font-weight:800;}
+  header.top .brand img{width:32px; height:32px;}
+  header.top .who{font-size:12px; color:#9FB6D6; margin-right:10px;}
+  main{max-width:900px; margin:0 auto; padding:22px 18px 60px;}
+  .panel{background:#fff; border-radius:20px; padding:20px; box-shadow:0 8px 24px -16px rgba(0,22,66,.3); margin-bottom:20px;}
+  .panel h2{font-size:16px; margin:0 0 14px; display:flex; align-items:center; justify-content:space-between;}
+  .row{display:flex; gap:10px; flex-wrap:wrap;}
+  .row > .field{flex:1; min-width:130px; margin-bottom:0;}
+  .list{margin-top:16px; display:flex; flex-direction:column; gap:10px;}
+  .item{border:1.5px solid var(--line); border-radius:14px; padding:12px 14px; display:flex; align-items:center; justify-content:space-between; gap:10px;}
+  .item.selected{border-color:var(--blue-400); background:#F5FBFF;}
+  .item .info{cursor:pointer; flex:1;}
+  .item .info .name{font-weight:800; font-size:15px;}
+  .item .info .meta{font-size:12px; color:var(--muted); margin-top:2px;}
+  .item .acts{display:flex; gap:6px;}
+  .tag{display:inline-block; font-size:11px; font-weight:800; padding:3px 9px; border-radius:999px; text-transform:uppercase; letter-spacing:.03em;}
+  .tag.lav{background:#E2F0FB; color:var(--blue-600);}
+  .tag.sec{background:#FFF1DF; color:#B4690E;}
+  .empty{color:var(--muted); font-size:14px; padding:14px 0; text-align:center;}
+  .form-inline{border:1.5px dashed var(--line); border-radius:14px; padding:14px; margin-top:14px;}
+  .form-inline .row{align-items:flex-end;}
+  .hint{font-size:12px; color:var(--muted); margin-top:10px;}
+  .filial-head{font-size:13px; color:var(--muted); margin-bottom:2px;}
+</style>
+</head>
+<body>
+
+<!-- ================= LOGIN ================= -->
+<div id="loginView">
+  <div class="login-card">
+    <img src="../logo.svg" alt="Go Laundry Smart" onerror="this.style.display='none'">
+    <h1>Painel Administrativo</h1>
+    <p class="sub">Go Laundry Smart</p>
+    <div id="loginMsg" class="msg"></div>
+    <div class="field">
+      <label>E-mail</label>
+      <input id="email" type="email" autocomplete="username" placeholder="voce@exemplo.com">
+    </div>
+    <div class="field">
+      <label>Senha</label>
+      <input id="password" type="password" autocomplete="current-password" placeholder="••••••••">
+    </div>
+    <div class="login-actions">
+      <button class="btn" id="btnLogin">Entrar</button>
+      <button class="link-btn" id="btnSignup">Criar conta de administrador</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= APP ================= -->
+<div id="appView" class="hidden">
+  <header class="top">
+    <div class="brand"><img src="../logo.svg" alt="" onerror="this.style.display='none'"> Admin · Go Laundry</div>
+    <div><span class="who" id="whoami"></span><button class="btn sec sm" id="btnLogout">Sair</button></div>
+  </header>
+  <main>
+    <!-- FILIAIS -->
+    <div class="panel">
+      <h2>Filiais <button class="btn sm" id="btnNewFilial">+ Nova filial</button></h2>
+      <div id="filialForm" class="form-inline hidden">
+        <div class="row">
+          <div class="field"><label>Nome *</label><input id="fNome" placeholder="Ex: Unidade Centro"></div>
+          <div class="field"><label>Cidade</label><input id="fCidade" placeholder="Ex: Itaguaí"></div>
+        </div>
+        <div class="row" style="margin-top:10px;">
+          <div class="field"><label>Endereço</label><input id="fEndereco" placeholder="Rua, nº"></div>
+          <div class="field"><label>Telefone</label><input id="fTelefone" placeholder="(00) 00000-0000"></div>
+        </div>
+        <div class="row" style="margin-top:12px; gap:8px;">
+          <button class="btn sm" id="btnSaveFilial">Salvar</button>
+          <button class="btn sec sm" id="btnCancelFilial">Cancelar</button>
+        </div>
+      </div>
+      <div class="list" id="filialList"><div class="empty">Carregando…</div></div>
+    </div>
+
+    <!-- MAQUINAS -->
+    <div class="panel hidden" id="maquinasPanel">
+      <div class="filial-head" id="maquinasFilialName"></div>
+      <h2>Máquinas <button class="btn sm" id="btnNewMaquina">+ Nova máquina</button></h2>
+      <div id="maquinaForm" class="form-inline hidden">
+        <div class="row">
+          <div class="field"><label>Nome/nº de exibição *</label><input id="mNome" placeholder="Ex: 1 ou 1B"></div>
+          <div class="field"><label>Tipo *</label>
+            <select id="mTipo"><option value="lavadora">Lavadora</option><option value="secadora">Secadora</option></select>
+          </div>
+        </div>
+        <div class="row" style="margin-top:10px;">
+          <div class="field"><label>Conjunto (par lava-e-seca)</label><input id="mConjunto" type="number" min="1" placeholder="Ex: 1"></div>
+          <div class="field"><label>Duração (min) *</label><input id="mDuracao" type="number" min="1" value="50"></div>
+        </div>
+        <div class="row" style="margin-top:12px; gap:8px;">
+          <button class="btn sm" id="btnSaveMaquina">Salvar</button>
+          <button class="btn sec sm" id="btnCancelMaquina">Cancelar</button>
+        </div>
+        <div class="hint">Lavadora e secadora do mesmo par usam o mesmo número de <b>Conjunto</b> (ex: máquina 1 e 1B → conjunto 1).</div>
+      </div>
+      <div class="list" id="maquinaList"></div>
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const SUPABASE_URL = "https://mreekkooyrhpwkqhldrt.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_vUxewmHXiRyn77WcjGdWmQ_4tGTq0JU";
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  const $ = (id) => document.getElementById(id);
+  const loginView = $("loginView"), appView = $("appView");
+  let currentFilialId = null;
+  let editFilialId = null, editMaquinaId = null;
+
+  function showMsg(text, type){
+    const m = $("loginMsg");
+    m.textContent = text; m.className = "msg " + (type || "err");
+  }
+
+  // ---------- AUTH ----------
+  async function refreshAuth(){
+    const { data:{ session } } = await sb.auth.getSession();
+    if(session){
+      // confirma se é admin autorizado
+      const { data: isAdmin, error } = await sb.rpc("is_admin");
+      if(error || !isAdmin){
+        await sb.auth.signOut();
+        loginView.classList.remove("hidden"); appView.classList.add("hidden");
+        showMsg("Esta conta não tem permissão de administrador.", "err");
+        return;
+      }
+      $("whoami").textContent = session.user.email;
+      loginView.classList.add("hidden"); appView.classList.remove("hidden");
+      loadFiliais();
+    } else {
+      loginView.classList.remove("hidden"); appView.classList.add("hidden");
+    }
+  }
+
+  $("btnLogin").onclick = async () => {
+    const email = $("email").value.trim(), password = $("password").value;
+    if(!email || !password){ showMsg("Preencha e-mail e senha."); return; }
+    $("btnLogin").disabled = true;
+    const { error } = await sb.auth.signInWithPassword({ email, password });
+    $("btnLogin").disabled = false;
+    if(error){ showMsg(error.message); return; }
+    refreshAuth();
+  };
+
+  $("btnSignup").onclick = async () => {
+    const email = $("email").value.trim(), password = $("password").value;
+    if(!email || !password){ showMsg("Preencha e-mail e senha para criar a conta."); return; }
+    if(password.length < 6){ showMsg("A senha deve ter ao menos 6 caracteres."); return; }
+    $("btnSignup").disabled = true;
+    const { data, error } = await sb.auth.signUp({ email, password });
+    $("btnSignup").disabled = false;
+    if(error){ showMsg(error.message); return; }
+    if(data.session){ refreshAuth(); }
+    else { showMsg("Conta criada! Confirme o e-mail que enviamos e depois faça login.", "ok"); }
+  };
+
+  $("btnLogout").onclick = async () => { await sb.auth.signOut(); refreshAuth(); };
+
+  // ---------- FILIAIS ----------
+  function resetFilialForm(){
+    editFilialId = null;
+    $("fNome").value = ""; $("fCidade").value = ""; $("fEndereco").value = ""; $("fTelefone").value = "";
+  }
+  $("btnNewFilial").onclick = () => { resetFilialForm(); $("filialForm").classList.remove("hidden"); $("fNome").focus(); };
+  $("btnCancelFilial").onclick = () => { $("filialForm").classList.add("hidden"); resetFilialForm(); };
+
+  $("btnSaveFilial").onclick = async () => {
+    const payload = {
+      nome: $("fNome").value.trim(),
+      cidade: $("fCidade").value.trim() || null,
+      endereco: $("fEndereco").value.trim() || null,
+      telefone: $("fTelefone").value.trim() || null,
+    };
+    if(!payload.nome){ alert("Informe o nome da filial."); return; }
+    let res;
+    if(editFilialId) res = await sb.from("filiais").update(payload).eq("id", editFilialId);
+    else res = await sb.from("filiais").insert(payload);
+    if(res.error){ alert("Erro: " + res.error.message); return; }
+    $("filialForm").classList.add("hidden"); resetFilialForm(); loadFiliais();
+  };
+
+  async function loadFiliais(){
+    const { data, error } = await sb.from("filiais").select("*").order("created_at");
+    const list = $("filialList");
+    if(error){ list.innerHTML = '<div class="empty">Erro ao carregar: '+error.message+'</div>'; return; }
+    if(!data.length){ list.innerHTML = '<div class="empty">Nenhuma filial cadastrada ainda.</div>'; return; }
+    list.innerHTML = "";
+    data.forEach(f => {
+      const div = document.createElement("div");
+      div.className = "item" + (f.id === currentFilialId ? " selected" : "");
+      const meta = [f.cidade, f.endereco, f.telefone].filter(Boolean).join(" · ") || "sem detalhes";
+      div.innerHTML =
+        '<div class="info"><div class="name">'+esc(f.nome)+'</div><div class="meta">'+esc(meta)+'</div></div>'+
+        '<div class="acts">'+
+          '<button class="btn sec sm" data-act="edit">Editar</button>'+
+          '<button class="btn danger sm" data-act="del">Excluir</button>'+
+        '</div>';
+      div.querySelector(".info").onclick = () => selectFilial(f);
+      div.querySelector('[data-act="edit"]').onclick = () => {
+        editFilialId = f.id;
+        $("fNome").value = f.nome; $("fCidade").value = f.cidade||""; $("fEndereco").value = f.endereco||""; $("fTelefone").value = f.telefone||"";
+        $("filialForm").classList.remove("hidden");
+      };
+      div.querySelector('[data-act="del"]').onclick = () => delFilial(f);
+      list.appendChild(div);
+    });
+  }
+
+  async function delFilial(f){
+    if(!confirm('Excluir a filial "'+f.nome+'" e TODAS as máquinas dela?')) return;
+    const { error } = await sb.from("filiais").delete().eq("id", f.id);
+    if(error){ alert("Erro: "+error.message); return; }
+    if(currentFilialId === f.id){ currentFilialId = null; $("maquinasPanel").classList.add("hidden"); }
+    loadFiliais();
+  }
+
+  function selectFilial(f){
+    currentFilialId = f.id;
+    $("maquinasFilialName").textContent = "Filial: " + f.nome;
+    $("maquinasPanel").classList.remove("hidden");
+    $("maquinaForm").classList.add("hidden");
+    loadFiliais(); loadMaquinas();
+    $("maquinasPanel").scrollIntoView({ behavior:"smooth", block:"start" });
+  }
+
+  // ---------- MAQUINAS ----------
+  function resetMaquinaForm(){
+    editMaquinaId = null;
+    $("mNome").value = ""; $("mTipo").value = "lavadora"; $("mConjunto").value = ""; $("mDuracao").value = "50";
+  }
+  $("btnNewMaquina").onclick = () => { resetMaquinaForm(); $("maquinaForm").classList.remove("hidden"); $("mNome").focus(); };
+  $("btnCancelMaquina").onclick = () => { $("maquinaForm").classList.add("hidden"); resetMaquinaForm(); };
+
+  $("btnSaveMaquina").onclick = async () => {
+    const nome = $("mNome").value.trim();
+    const tipo = $("mTipo").value;
+    if(!nome){ alert("Informe o nome/número da máquina."); return; }
+    const idInterno = (tipo === "lavadora" ? "MAQ-" : "SEC-") + nome.toUpperCase();
+    const payload = {
+      filial_id: currentFilialId,
+      id_interno: idInterno,
+      nome_exibicao: nome,
+      tipo: tipo,
+      conjunto: $("mConjunto").value ? parseInt($("mConjunto").value) : null,
+      duracao_min: parseInt($("mDuracao").value) || 50,
+    };
+    let res;
+    if(editMaquinaId) res = await sb.from("maquinas").update(payload).eq("id", editMaquinaId);
+    else res = await sb.from("maquinas").insert(payload);
+    if(res.error){ alert("Erro: " + res.error.message); return; }
+    $("maquinaForm").classList.add("hidden"); resetMaquinaForm(); loadMaquinas();
+  };
+
+  async function loadMaquinas(){
+    const { data, error } = await sb.from("maquinas").select("*").eq("filial_id", currentFilialId).order("tipo").order("nome_exibicao");
+    const list = $("maquinaList");
+    if(error){ list.innerHTML = '<div class="empty">Erro: '+error.message+'</div>'; return; }
+    if(!data.length){ list.innerHTML = '<div class="empty">Nenhuma máquina nesta filial ainda.</div>'; return; }
+    list.innerHTML = "";
+    data.forEach(m => {
+      const div = document.createElement("div");
+      div.className = "item";
+      const tag = m.tipo === "lavadora" ? '<span class="tag lav">Lavadora</span>' : '<span class="tag sec">Secadora</span>';
+      const meta = [m.conjunto ? "Conjunto "+m.conjunto : null, m.duracao_min+" min", m.id_interno].filter(Boolean).join(" · ");
+      div.innerHTML =
+        '<div class="info"><div class="name">'+tag+' &nbsp;'+esc(m.nome_exibicao)+'</div><div class="meta">'+esc(meta)+'</div></div>'+
+        '<div class="acts">'+
+          '<button class="btn sec sm" data-act="edit">Editar</button>'+
+          '<button class="btn danger sm" data-act="del">Excluir</button>'+
+        '</div>';
+      div.querySelector('[data-act="edit"]').onclick = () => {
+        editMaquinaId = m.id;
+        $("mNome").value = m.nome_exibicao; $("mTipo").value = m.tipo;
+        $("mConjunto").value = m.conjunto||""; $("mDuracao").value = m.duracao_min;
+        $("maquinaForm").classList.remove("hidden");
+      };
+      div.querySelector('[data-act="del"]').onclick = async () => {
+        if(!confirm('Excluir a máquina "'+m.nome_exibicao+'"?')) return;
+        const { error } = await sb.from("maquinas").delete().eq("id", m.id);
+        if(error){ alert("Erro: "+error.message); return; }
+        loadMaquinas();
+      };
+      list.appendChild(div);
+    });
+  }
+
+  function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+  // enter para logar
+  $("password").addEventListener("keydown", e => { if(e.key === "Enter") $("btnLogin").click(); });
+
+  refreshAuth();
+</script>
+</body>
+</html>
