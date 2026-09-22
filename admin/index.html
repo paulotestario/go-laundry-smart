@@ -54,9 +54,18 @@
   header.top .brand{display:flex; align-items:center; gap:10px; font-weight:800;}
   header.top .brand img{width:32px; height:32px;}
   header.top .who{font-size:12px; color:#9FB6D6; margin-right:10px;}
+
+  /* ---- Abas de navegação ---- */
+  nav.tabs{background:var(--navy-700); display:flex; gap:2px; padding:0 12px; overflow-x:auto;}
+  nav.tabs button{
+    background:none; border:none; color:#9FB6D6; font-weight:700; font-size:14px;
+    padding:14px 16px; border-bottom:3px solid transparent; white-space:nowrap;
+  }
+  nav.tabs button.active{color:#fff; border-bottom-color:var(--blue-300);}
+
   main{max-width:900px; margin:0 auto; padding:22px 18px 60px;}
   .panel{background:#fff; border-radius:20px; padding:20px; box-shadow:0 8px 24px -16px rgba(0,22,66,.3); margin-bottom:20px;}
-  .panel h2{font-size:16px; margin:0 0 14px; display:flex; align-items:center; justify-content:space-between;}
+  .panel h2{font-size:16px; margin:0 0 14px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;}
   .row{display:flex; gap:10px; flex-wrap:wrap;}
   .row > .field{flex:1; min-width:130px; margin-bottom:0;}
   .list{margin-top:16px; display:flex; flex-direction:column; gap:10px;}
@@ -65,7 +74,7 @@
   .item .info{cursor:pointer; flex:1;}
   .item .info .name{font-weight:800; font-size:15px;}
   .item .info .meta{font-size:12px; color:var(--muted); margin-top:2px;}
-  .item .acts{display:flex; gap:6px;}
+  .item .acts{display:flex; gap:6px; flex-wrap:wrap;}
   .tag{display:inline-block; font-size:11px; font-weight:800; padding:3px 9px; border-radius:999px; text-transform:uppercase; letter-spacing:.03em;}
   .tag.lav{background:#E2F0FB; color:var(--blue-600);}
   .tag.sec{background:#FFF1DF; color:#B4690E;}
@@ -74,6 +83,8 @@
   .form-inline .row{align-items:flex-end;}
   .hint{font-size:12px; color:var(--muted); margin-top:10px;}
   .filial-head{font-size:13px; color:var(--muted); margin-bottom:2px;}
+
+  /* ---- Modal de QR (individual) ---- */
   .qr-modal{position:fixed; inset:0; background:rgba(0,22,66,.55); display:flex; align-items:center; justify-content:center; padding:20px; z-index:50;}
   .qr-box{background:#fff; border-radius:20px; padding:24px; max-width:340px; width:100%; text-align:center;}
   .qr-title{font-weight:800; font-size:16px; margin-bottom:14px;}
@@ -81,11 +92,32 @@
   .qr-render svg{width:240px; height:240px;}
   .qr-url{font-size:11px; color:var(--muted); word-break:break-all; margin:10px 0 16px;}
   .qr-actions{display:flex; gap:8px; justify-content:center;}
+
+  /* ---- Folha de impressão de QR (grade) ---- */
+  #filialSelectRow{max-width:320px;}
+  .qr-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr)); gap:14px; margin-top:18px;}
+  .qr-cell{border:1.5px solid var(--line); border-radius:16px; padding:16px 12px; text-align:center; page-break-inside:avoid; break-inside:avoid;}
+  .qr-cell .cell-logo{width:80px; margin:0 auto 6px; display:block;}
+  .qr-cell .cell-name{font-weight:800; font-size:16px; margin-bottom:2px;}
+  .qr-cell .cell-type{font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; margin-bottom:10px;}
+  .qr-cell svg{width:170px; height:170px;}
+  .qr-cell .cell-instr{font-size:12px; color:var(--navy-900); margin-top:10px; font-weight:600; line-height:1.35;}
+
   @media print{
+    /* Esconde tudo por padrão; cada modo de impressão revela só a sua área */
     body *{visibility:hidden;}
-    #qrModal, #qrModal *{visibility:visible;}
-    #qrModal{position:absolute; inset:auto; background:#fff; padding:0;}
-    .qr-actions{display:none;}
+    header.top, nav.tabs{display:none !important;}
+
+    /* Modo 1: QR individual (modal) */
+    body.print-modal #qrModal, body.print-modal #qrModal *{visibility:visible;}
+    body.print-modal #qrModal{position:absolute; inset:auto; background:#fff; padding:0;}
+    body.print-modal .qr-actions{display:none;}
+
+    /* Modo 2: Folha em grade */
+    body.print-sheet #qrSheet, body.print-sheet #qrSheet *{visibility:visible;}
+    body.print-sheet #qrSheet{position:absolute; left:0; top:0; width:100%;}
+    body.print-sheet .no-print{display:none !important;}
+    body.print-sheet .qr-grid{grid-template-columns:repeat(3, 1fr);}
   }
 </style>
 </head>
@@ -119,61 +151,109 @@
     <div class="brand"><img src="../logo.svg" alt="" onerror="this.style.display='none'"> Admin · Go Laundry</div>
     <div><span class="who" id="whoami"></span><button class="btn sec sm" id="btnLogout">Sair</button></div>
   </header>
-  <main>
-    <!-- FILIAIS -->
-    <div class="panel">
-      <h2>Filiais <button class="btn sm" id="btnNewFilial">+ Nova filial</button></h2>
-      <div id="filialForm" class="form-inline hidden">
-        <div class="row">
-          <div class="field"><label>Nome *</label><input id="fNome" placeholder="Ex: Unidade Centro"></div>
-          <div class="field"><label>Cidade</label><input id="fCidade" placeholder="Ex: Itaguaí"></div>
-        </div>
-        <div class="row" style="margin-top:10px;">
-          <div class="field"><label>Endereço</label><input id="fEndereco" placeholder="Rua, nº"></div>
-          <div class="field"><label>Telefone</label><input id="fTelefone" placeholder="(00) 00000-0000"></div>
-        </div>
-        <div class="row" style="margin-top:12px; gap:8px;">
-          <button class="btn sm" id="btnSaveFilial">Salvar</button>
-          <button class="btn sec sm" id="btnCancelFilial">Cancelar</button>
-        </div>
-      </div>
-      <div class="list" id="filialList"><div class="empty">Carregando…</div></div>
-    </div>
 
-    <!-- MAQUINAS -->
-    <div class="panel hidden" id="maquinasPanel">
-      <div class="filial-head" id="maquinasFilialName"></div>
-      <h2>Máquinas <button class="btn sm" id="btnNewMaquina">+ Nova máquina</button></h2>
-      <div id="maquinaForm" class="form-inline hidden">
-        <div class="row">
-          <div class="field"><label>Nome/nº de exibição *</label><input id="mNome" placeholder="Ex: 1 ou 1B"></div>
-          <div class="field"><label>Tipo *</label>
-            <select id="mTipo"><option value="lavadora">Lavadora</option><option value="secadora">Secadora</option></select>
+  <!-- Abas -->
+  <nav class="tabs">
+    <button data-view="cadastro" class="active">Cadastro</button>
+    <button data-view="qrprint">Impressão de QR</button>
+    <button data-view="config">Configuração</button>
+  </nav>
+
+  <main>
+    <!-- ===================== VIEW: CADASTRO ===================== -->
+    <section id="view-cadastro">
+      <!-- FILIAIS -->
+      <div class="panel">
+        <h2>Filiais <button class="btn sm" id="btnNewFilial">+ Nova filial</button></h2>
+        <div id="filialForm" class="form-inline hidden">
+          <div class="row">
+            <div class="field"><label>Nome *</label><input id="fNome" placeholder="Ex: Unidade Centro"></div>
+            <div class="field"><label>Cidade</label><input id="fCidade" placeholder="Ex: Itaguaí"></div>
+          </div>
+          <div class="row" style="margin-top:10px;">
+            <div class="field"><label>Endereço</label><input id="fEndereco" placeholder="Rua, nº"></div>
+            <div class="field"><label>Telefone</label><input id="fTelefone" placeholder="(00) 00000-0000"></div>
+          </div>
+          <div class="row" style="margin-top:12px; gap:8px;">
+            <button class="btn sm" id="btnSaveFilial">Salvar</button>
+            <button class="btn sec sm" id="btnCancelFilial">Cancelar</button>
           </div>
         </div>
-        <div class="row" style="margin-top:10px;">
-          <div class="field"><label>Conjunto (par lava-e-seca)</label><input id="mConjunto" type="number" min="1" placeholder="Ex: 1"></div>
-          <div class="field"><label>Duração (min) *</label><input id="mDuracao" type="number" min="1" value="50"></div>
-        </div>
-        <div class="row" style="margin-top:12px; gap:8px;">
-          <button class="btn sm" id="btnSaveMaquina">Salvar</button>
-          <button class="btn sec sm" id="btnCancelMaquina">Cancelar</button>
-        </div>
-        <div class="hint">Lavadora e secadora do mesmo par usam o mesmo número de <b>Conjunto</b> (ex: máquina 1 e 1B → conjunto 1).</div>
+        <div class="list" id="filialList"><div class="empty">Carregando…</div></div>
       </div>
-      <div class="list" id="maquinaList"></div>
-    </div>
+
+      <!-- MAQUINAS -->
+      <div class="panel hidden" id="maquinasPanel">
+        <div class="filial-head" id="maquinasFilialName"></div>
+        <h2>Máquinas <button class="btn sm" id="btnNewMaquina">+ Nova máquina</button></h2>
+        <div id="maquinaForm" class="form-inline hidden">
+          <div class="row">
+            <div class="field"><label>Nome/nº de exibição *</label><input id="mNome" placeholder="Ex: 1 ou 1B"></div>
+            <div class="field"><label>Tipo *</label>
+              <select id="mTipo"><option value="lavadora">Lavadora</option><option value="secadora">Secadora</option></select>
+            </div>
+          </div>
+          <div class="row" style="margin-top:10px;">
+            <div class="field"><label>Conjunto (par lava-e-seca)</label><input id="mConjunto" type="number" min="1" placeholder="Ex: 1"></div>
+            <div class="field"><label>Duração (min) *</label><input id="mDuracao" type="number" min="1" value="50"></div>
+          </div>
+          <div class="row" style="margin-top:12px; gap:8px;">
+            <button class="btn sm" id="btnSaveMaquina">Salvar</button>
+            <button class="btn sec sm" id="btnCancelMaquina">Cancelar</button>
+          </div>
+          <div class="hint">Lavadora e secadora do mesmo par usam o mesmo número de <b>Conjunto</b> (ex: máquina 1 e 1B → conjunto 1). A duração vem da <b>Configuração</b>, mas pode ser ajustada aqui.</div>
+        </div>
+        <div class="list" id="maquinaList"></div>
+      </div>
+    </section>
+
+    <!-- ===================== VIEW: IMPRESSÃO DE QR ===================== -->
+    <section id="view-qrprint" class="hidden">
+      <div class="panel no-print">
+        <h2>Impressão de QR codes</h2>
+        <div class="field" id="filialSelectRow">
+          <label>Filial</label>
+          <select id="qrFilialSelect"><option value="">Selecione uma filial…</option></select>
+        </div>
+        <div class="hint">Gera uma folha com o QR de cada máquina da filial (nome + instrução), pronta para imprimir e colar. Cada QR leva o cliente ao cronômetro daquela máquina.</div>
+        <div style="margin-top:14px; display:flex; gap:8px;">
+          <button class="btn" id="btnPrintSheet">🖨 Imprimir folha</button>
+        </div>
+      </div>
+
+      <div id="qrSheet">
+        <div class="qr-grid" id="qrGrid"><div class="empty no-print">Selecione uma filial para gerar os QRs.</div></div>
+      </div>
+    </section>
+
+    <!-- ===================== VIEW: CONFIGURAÇÃO ===================== -->
+    <section id="view-config" class="hidden">
+      <div class="panel">
+        <h2>Duração padrão dos ciclos</h2>
+        <div class="hint" style="margin-top:0; margin-bottom:14px;">Usada como valor inicial ao cadastrar uma nova máquina. Cada máquina ainda pode ter a própria duração ajustada no cadastro. (Salvo neste navegador.)</div>
+        <div class="row">
+          <div class="field"><label>Lavagem (min)</label><input id="cfgDurLavadora" type="number" min="1" value="50"></div>
+          <div class="field"><label>Secagem (min)</label><input id="cfgDurSecadora" type="number" min="1" value="40"></div>
+        </div>
+        <div style="margin-top:14px;"><button class="btn sm" id="btnSaveConfig">Salvar</button> <span id="cfgSaved" class="hint" style="display:none; color:var(--ok);">✓ Salvo</span></div>
+      </div>
+
+      <div class="panel">
+        <h2>Integração de pagamento (Pixmaq)</h2>
+        <div class="hint" style="margin-top:0;">Em breve: vínculo do <b>serial</b> de cada controlador Pixmaq à máquina, para iniciar o ciclo automaticamente pelo pagamento. Por enquanto os ciclos são iniciados manualmente na aba <b>Cadastro</b>.</div>
+      </div>
+    </section>
   </main>
 </div>
 
-<!-- Modal de QR code por máquina -->
+<!-- Modal de QR code por máquina (individual) -->
 <div id="qrModal" class="qr-modal hidden">
   <div class="qr-box">
     <div class="qr-title" id="qrTitle"></div>
     <div class="qr-render" id="qrRender"></div>
     <div class="qr-url" id="qrUrl"></div>
     <div class="qr-actions">
-      <button class="btn sm" onclick="window.print()">Imprimir</button>
+      <button class="btn sm" id="btnPrintOne">Imprimir</button>
       <button class="btn sec sm" id="qrClose">Fechar</button>
     </div>
   </div>
@@ -190,17 +270,51 @@
   const loginView = $("loginView"), appView = $("appView");
   let currentFilialId = null;
   let editFilialId = null, editMaquinaId = null;
+  let filiaisCache = [];
+  const INSTRUCAO_QR = "Escaneie para acompanhar seu ciclo pelo celular";
 
   function showMsg(text, type){
     const m = $("loginMsg");
     m.textContent = text; m.className = "msg " + (type || "err");
   }
 
+  // ---------- CONFIG (duração padrão, no navegador) ----------
+  function getCfgDur(tipo){
+    const key = tipo === "secadora" ? "gls_dur_secadora" : "gls_dur_lavadora";
+    const v = parseInt(localStorage.getItem(key));
+    return (v && v > 0) ? v : (tipo === "secadora" ? 40 : 50);
+  }
+  function loadConfigUI(){
+    $("cfgDurLavadora").value = getCfgDur("lavadora");
+    $("cfgDurSecadora").value = getCfgDur("secadora");
+  }
+  $("btnSaveConfig").onclick = () => {
+    const l = parseInt($("cfgDurLavadora").value) || 50;
+    const s = parseInt($("cfgDurSecadora").value) || 40;
+    localStorage.setItem("gls_dur_lavadora", l);
+    localStorage.setItem("gls_dur_secadora", s);
+    const el = $("cfgSaved"); el.style.display = "inline"; setTimeout(() => el.style.display = "none", 1800);
+  };
+
+  // ---------- NAVEGAÇÃO (abas) ----------
+  function showView(name){
+    ["cadastro","qrprint","config"].forEach(v => {
+      $("view-"+v).classList.toggle("hidden", v !== name);
+    });
+    document.querySelectorAll("nav.tabs button").forEach(b => {
+      b.classList.toggle("active", b.dataset.view === name);
+    });
+    if(name === "qrprint") populateQrFilialSelect();
+    if(name === "config") loadConfigUI();
+  }
+  document.querySelectorAll("nav.tabs button").forEach(b => {
+    b.onclick = () => showView(b.dataset.view);
+  });
+
   // ---------- AUTH ----------
   async function refreshAuth(){
     const { data:{ session } } = await sb.auth.getSession();
     if(session){
-      // confirma se é admin autorizado
       const { data: isAdmin, error } = await sb.rpc("is_admin");
       if(error || !isAdmin){
         await sb.auth.signOut();
@@ -210,6 +324,7 @@
       }
       $("whoami").textContent = session.user.email;
       loginView.classList.add("hidden"); appView.classList.remove("hidden");
+      showView("cadastro");
       loadFiliais();
     } else {
       loginView.classList.remove("hidden"); appView.classList.add("hidden");
@@ -267,6 +382,7 @@
     const { data, error } = await sb.from("filiais").select("*").order("created_at");
     const list = $("filialList");
     if(error){ list.innerHTML = '<div class="empty">Erro ao carregar: '+error.message+'</div>'; return; }
+    filiaisCache = data || [];
     if(!data.length){ list.innerHTML = '<div class="empty">Nenhuma filial cadastrada ainda.</div>'; return; }
     list.innerHTML = "";
     data.forEach(f => {
@@ -310,8 +426,13 @@
   // ---------- MAQUINAS ----------
   function resetMaquinaForm(){
     editMaquinaId = null;
-    $("mNome").value = ""; $("mTipo").value = "lavadora"; $("mConjunto").value = ""; $("mDuracao").value = "50";
+    $("mNome").value = ""; $("mTipo").value = "lavadora"; $("mConjunto").value = "";
+    $("mDuracao").value = getCfgDur("lavadora");
   }
+  // ao trocar o tipo no cadastro de nova máquina, sugere a duração padrão daquele tipo
+  $("mTipo").addEventListener("change", () => {
+    if(!editMaquinaId) $("mDuracao").value = getCfgDur($("mTipo").value);
+  });
   $("btnNewMaquina").onclick = () => { resetMaquinaForm(); $("maquinaForm").classList.remove("hidden"); $("mNome").focus(); };
   $("btnCancelMaquina").onclick = () => { $("maquinaForm").classList.add("hidden"); resetMaquinaForm(); };
 
@@ -326,7 +447,7 @@
       nome_exibicao: nome,
       tipo: tipo,
       conjunto: $("mConjunto").value ? parseInt($("mConjunto").value) : null,
-      duracao_min: parseInt($("mDuracao").value) || 50,
+      duracao_min: parseInt($("mDuracao").value) || getCfgDur(tipo),
     };
     let res;
     if(editMaquinaId) res = await sb.from("maquinas").update(payload).eq("id", editMaquinaId);
@@ -340,7 +461,6 @@
     const { data, error } = await sb.from("maquinas").select("*").eq("filial_id", currentFilialId).order("tipo").order("nome_exibicao");
     if(error){ list.innerHTML = '<div class="empty">Erro: '+error.message+'</div>'; return; }
     if(!data.length){ list.innerHTML = '<div class="empty">Nenhuma máquina nesta filial ainda.</div>'; return; }
-    // sessões ativas para mostrar o estado de cada máquina
     const ids = data.map(m => m.id);
     const { data: sess } = await sb.from("sessoes").select("maquina_id,inicio,duracao_min").eq("status","ativa").in("maquina_id", ids);
     const ativa = {}; (sess||[]).forEach(s => { ativa[s.maquina_id] = s; });
@@ -395,16 +515,71 @@
     loadMaquinas();
   }
 
-  // Mostra o QR code da máquina (aponta para o cronômetro do cliente: /?m=<id>)
+  // ---------- QR INDIVIDUAL (modal) ----------
+  function clienteUrl(m){ return location.origin + "/?m=" + m.id; }
   function showQR(m){
-    const url = location.origin + "/?m=" + m.id;
     $("qrTitle").textContent = "Máquina " + m.nome_exibicao + " · " + (m.tipo === 'lavadora' ? 'Lavadora' : 'Secadora');
-    $("qrUrl").textContent = url;
-    const qr = qrcode(0, 'H'); qr.addData(url); qr.make();
+    $("qrUrl").textContent = clienteUrl(m);
+    const qr = qrcode(0, 'H'); qr.addData(clienteUrl(m)); qr.make();
     $("qrRender").innerHTML = qr.createSvgTag({ cellSize:6, margin:2, scalable:true });
     $("qrModal").classList.remove("hidden");
   }
   $("qrClose").onclick = () => $("qrModal").classList.add("hidden");
+  $("btnPrintOne").onclick = () => {
+    document.body.classList.add("print-modal");
+    window.print();
+    document.body.classList.remove("print-modal");
+  };
+
+  // ---------- IMPRESSÃO EM GRADE ----------
+  function populateQrFilialSelect(){
+    const sel = $("qrFilialSelect");
+    const prev = sel.value;
+    sel.innerHTML = '<option value="">Selecione uma filial…</option>';
+    filiaisCache.forEach(f => {
+      const o = document.createElement("option");
+      o.value = f.id; o.textContent = f.nome; sel.appendChild(o);
+    });
+    // mantém a seleção atual, ou usa a filial selecionada no cadastro
+    if(prev && filiaisCache.some(f => f.id === prev)) sel.value = prev;
+    else if(currentFilialId && filiaisCache.some(f => f.id === currentFilialId)) sel.value = currentFilialId;
+    if(sel.value) renderQrGrid(sel.value);
+    else $("qrGrid").innerHTML = '<div class="empty no-print">Selecione uma filial para gerar os QRs.</div>';
+  }
+  $("qrFilialSelect").onchange = () => {
+    const id = $("qrFilialSelect").value;
+    if(id) renderQrGrid(id);
+    else $("qrGrid").innerHTML = '<div class="empty no-print">Selecione uma filial para gerar os QRs.</div>';
+  };
+
+  async function renderQrGrid(filialId){
+    const grid = $("qrGrid");
+    grid.innerHTML = '<div class="empty no-print">Gerando QRs…</div>';
+    const { data, error } = await sb.from("maquinas").select("*").eq("filial_id", filialId).order("tipo").order("nome_exibicao");
+    if(error){ grid.innerHTML = '<div class="empty no-print">Erro: '+error.message+'</div>'; return; }
+    if(!data.length){ grid.innerHTML = '<div class="empty no-print">Nenhuma máquina nesta filial.</div>'; return; }
+    grid.innerHTML = "";
+    data.forEach(m => {
+      const qr = qrcode(0, 'H'); qr.addData(clienteUrl(m)); qr.make();
+      const svg = qr.createSvgTag({ cellSize:6, margin:2, scalable:true });
+      const cell = document.createElement("div");
+      cell.className = "qr-cell";
+      cell.innerHTML =
+        '<img class="cell-logo" src="../logo.svg" alt="" onerror="this.style.display=\'none\'">'+
+        '<div class="cell-name">Máquina '+esc(m.nome_exibicao)+'</div>'+
+        '<div class="cell-type">'+(m.tipo === 'lavadora' ? 'Lavadora' : 'Secadora')+'</div>'+
+        svg+
+        '<div class="cell-instr">'+INSTRUCAO_QR+'</div>';
+      grid.appendChild(cell);
+    });
+  }
+
+  $("btnPrintSheet").onclick = () => {
+    if(!$("qrGrid").querySelector(".qr-cell")){ alert("Selecione uma filial com máquinas para imprimir."); return; }
+    document.body.classList.add("print-sheet");
+    window.print();
+    document.body.classList.remove("print-sheet");
+  };
 
   function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
