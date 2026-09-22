@@ -298,10 +298,16 @@
     }catch{ return null; }
   }
 
+  // Cabeçalho de autenticação (token do Supabase) para a API protegida.
+  async function authHeader(){
+    const { data:{ session } } = await sb.auth.getSession();
+    return session ? { "Authorization": "Bearer " + session.access_token } : {};
+  }
+
   // Carrega a config da rede (chamado no login). Se a API falhar, mantém o padrão.
   async function loadConfig(){
     try{
-      const r = await fetch("/api/config", { cache:"no-store" });
+      const r = await fetch("/api/config", { cache:"no-store", headers: await authHeader() });
       if(r.ok){ const cfg = parseConfigXml(await r.text()); if(cfg) appConfig = cfg; }
     }catch(e){ /* offline / API indisponível — segue com o padrão */ }
   }
@@ -318,7 +324,7 @@
     btn.disabled = true; el.style.color = "var(--muted)"; el.textContent = "Salvando…"; el.style.display = "inline";
     try{
       const r = await fetch("/api/config", {
-        method:"POST", headers:{ "Content-Type":"application/json" },
+        method:"POST", headers:{ "Content-Type":"application/json", ...(await authHeader()) },
         body: JSON.stringify({ duracaoPadrao:{ lavadora:l, secadora:s } }),
       });
       if(!r.ok){ let msg = "Erro ao salvar"; try{ const j = await r.json(); if(j.mensagem) msg = j.mensagem; }catch{} throw new Error(msg); }
