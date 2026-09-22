@@ -165,6 +165,7 @@
       <!-- FILIAIS -->
       <div class="panel">
         <h2>Filiais <button class="btn sm" id="btnNewFilial">+ Nova filial</button></h2>
+        <div class="hint" style="margin-top:0; margin-bottom:6px;">Toque em <b>Máquinas</b> numa filial para cadastrar e gerar os QRs dela.</div>
         <div id="filialForm" class="form-inline hidden">
           <div class="row">
             <div class="field"><label>Nome *</label><input id="fNome" placeholder="Ex: Unidade Centro"></div>
@@ -406,10 +407,12 @@
       div.innerHTML =
         '<div class="info"><div class="name">'+esc(f.nome)+'</div><div class="meta">'+esc(meta)+'</div></div>'+
         '<div class="acts">'+
+          '<button class="btn sm" data-act="maq">Máquinas</button>'+
           '<button class="btn sec sm" data-act="edit">Editar</button>'+
           '<button class="btn danger sm" data-act="del">Excluir</button>'+
         '</div>';
       div.querySelector(".info").onclick = () => selectFilial(f);
+      div.querySelector('[data-act="maq"]').onclick = () => selectFilial(f);
       div.querySelector('[data-act="edit"]').onclick = () => {
         editFilialId = f.id;
         $("fNome").value = f.nome; $("fCidade").value = f.cidade||""; $("fEndereco").value = f.endereco||""; $("fTelefone").value = f.telefone||"";
@@ -418,6 +421,8 @@
       div.querySelector('[data-act="del"]').onclick = () => delFilial(f);
       list.appendChild(div);
     });
+    // se só há uma filial e nenhuma selecionada, abre as máquinas dela automaticamente
+    if(data.length === 1 && !currentFilialId){ selectFilial(data[0]); }
   }
 
   async function delFilial(f){
