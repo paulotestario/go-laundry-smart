@@ -230,7 +230,7 @@
     <section id="view-config" class="hidden">
       <div class="panel">
         <h2>Duração padrão dos ciclos</h2>
-        <div class="hint" style="margin-top:0; margin-bottom:14px;">Usada como valor inicial ao cadastrar uma nova máquina. Cada máquina ainda pode ter a própria duração ajustada no cadastro. (Salvo neste navegador.)</div>
+        <div class="hint" style="margin-top:0; margin-bottom:14px;">Usada como valor inicial ao cadastrar uma nova máquina. Cada máquina ainda pode ter a própria duração ajustada no cadastro. (Salvo em rede — compartilhado entre todos os dispositivos.)</div>
         <div class="row">
           <div class="field"><label>Lavagem (min)</label><input id="cfgDurLavadora" type="number" min="1" value="50"></div>
           <div class="field"><label>Secagem (min)</label><input id="cfgDurSecadora" type="number" min="1" value="40"></div>
@@ -278,22 +278,56 @@
     m.textContent = text; m.className = "msg " + (type || "err");
   }
 
-  // ---------- CONFIG (duração padrão, no navegador) ----------
+  // ---------- CONFIG (config.xml compartilhado em rede via /api/config) ----------
+  let appConfig = { duracaoPadrao: { lavadora: 50, secadora: 40 } };
+
   function getCfgDur(tipo){
-    const key = tipo === "secadora" ? "gls_dur_secadora" : "gls_dur_lavadora";
-    const v = parseInt(localStorage.getItem(key));
+    const v = tipo === "secadora" ? appConfig.duracaoPadrao.secadora : appConfig.duracaoPadrao.lavadora;
     return (v && v > 0) ? v : (tipo === "secadora" ? 40 : 50);
   }
-  function loadConfigUI(){
-    $("cfgDurLavadora").value = getCfgDur("lavadora");
-    $("cfgDurSecadora").value = getCfgDur("secadora");
+
+  function parseConfigXml(xmlText){
+    try{
+      const doc = new DOMParser().parseFromString(xmlText, "application/xml");
+      if(doc.querySelector("parsererror")) return null;
+      const g = (sel, def) => { const el = doc.querySelector(sel); const n = el ? parseInt(el.textContent, 10) : NaN; return Number.isFinite(n) ? n : def; };
+      return { duracaoPadrao: {
+        lavadora: g("config > duracaoPadrao > lavadora", 50),
+        secadora: g("config > duracaoPadrao > secadora", 40),
+      }};
+    }catch{ return null; }
   }
-  $("btnSaveConfig").onclick = () => {
-    const l = parseInt($("cfgDurLavadora").value) || 50;
-    const s = parseInt($("cfgDurSecadora").value) || 40;
-    localStorage.setItem("gls_dur_lavadora", l);
-    localStorage.setItem("gls_dur_secadora", s);
-    const el = $("cfgSaved"); el.style.display = "inline"; setTimeout(() => el.style.display = "none", 1800);
+
+  // Carrega a config da rede (chamado no login). Se a API falhar, mantém o padrão.
+  async function loadConfig(){
+    try{
+      const r = await fetch("/api/config", { cache:"no-store" });
+      if(r.ok){ const cfg = parseConfigXml(await r.text()); if(cfg) appConfig = cfg; }
+    }catch(e){ /* offline / API indisponível — segue com o padrão */ }
+  }
+
+  function loadConfigUI(){
+    $("cfgDurLavadora").value = appConfig.duracaoPadrao.lavadora;
+    $("cfgDurSecadora").value = appConfig.duracaoPadrao.secadora;
+  }
+
+  $("btnSaveConfig").onclick = async () => {
+    const l = parseInt($("cfgDurLavadora").value, 10) || 50;
+    const s = parseInt($("cfgDurSecadora").value, 10) || 40;
+    const btn = $("btnSaveConfig"), el = $("cfgSaved");
+    btn.disabled = true; el.style.color = "var(--muted)"; el.textContent = "Salvando…"; el.style.display = "inline";
+    try{
+      const r = await fetch("/api/config", {
+        method:"POST", headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ duracaoPadrao:{ lavadora:l, secadora:s } }),
+      });
+      if(!r.ok){ let msg = "Erro ao salvar"; try{ const j = await r.json(); if(j.mensagem) msg = j.mensagem; }catch{} throw new Error(msg); }
+      const cfg = parseConfigXml(await r.text()); if(cfg) appConfig = cfg;
+      loadConfigUI();
+      el.style.color = "var(--ok)"; el.textContent = "✓ Salvo em rede"; setTimeout(() => el.style.display = "none", 2200);
+    }catch(err){
+      el.style.color = "var(--danger)"; el.textContent = "✕ " + err.message;
+    }finally{ btn.disabled = false; }
   };
 
   // ---------- NAVEGAÇÃO (abas) ----------
@@ -324,6 +358,7 @@
       }
       $("whoami").textContent = session.user.email;
       loginView.classList.add("hidden"); appView.classList.remove("hidden");
+      await loadConfig();
       showView("cadastro");
       loadFiliais();
     } else {
