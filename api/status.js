@@ -8,9 +8,13 @@ export default async function handler(req, res) {
   const m = req.query.m;
   if (!m) return res.status(400).json({ ok: false, mensagem: "Parâmetro m obrigatório." });
   try {
-    const maq = (await getMaquinas()).find((x) => x.id === m);
+    const chave = String(m).trim().toLowerCase();
+    const maquinas = await getMaquinas();
+    // aceita id (compatibilidade) ou nome de exibição (case-insensitive)
+    const maq = maquinas.find((x) => x.id === m)
+      || maquinas.find((x) => String(x.nomeExibicao).trim().toLowerCase() === chave);
     if (!maq) return res.status(404).json({ ok: false, mensagem: "Máquina não encontrada." });
-    const sessao = (await getSessoes()).find((s) => s.maquinaId === m && s.status === "ativa") || null;
+    const sessao = (await getSessoes()).find((s) => s.maquinaId === maq.id && s.status === "ativa") || null;
     return res.status(200).json({
       ok: true,
       maquina: { id: maq.id, nomeExibicao: maq.nomeExibicao, tipo: maq.tipo, duracaoMin: maq.duracaoMin },

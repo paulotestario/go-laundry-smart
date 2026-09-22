@@ -529,7 +529,7 @@
   }
 
   // ---------- QR individual (modal) ----------
-  function clienteUrl(m){ return location.origin + "/?m=" + m.id; }
+  function clienteUrl(m){ return location.origin + "/?m=" + encodeURIComponent(m.nomeExibicao); }
   function showQR(m){
     $("qrTitle").textContent = "Máquina " + m.nomeExibicao + " · " + (m.tipo === 'lavadora' ? 'Lavadora' : 'Secadora');
     $("qrUrl").textContent = clienteUrl(m);
