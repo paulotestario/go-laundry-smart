@@ -131,8 +131,8 @@
     <p class="sub">Go Laundry Smart</p>
     <div id="loginMsg" class="msg"></div>
     <div class="field">
-      <label>E-mail</label>
-      <input id="email" type="email" autocomplete="username" placeholder="voce@exemplo.com">
+      <label>E-mail ou usuário</label>
+      <input id="email" type="text" autocomplete="username" placeholder="voce@exemplo.com ou usuário">
     </div>
     <div class="field">
       <label>Senha</label>
@@ -278,6 +278,15 @@
     m.textContent = text; m.className = "msg " + (type || "err");
   }
 
+  // Aceita e-mail ou usuário: se não tiver "@", vira um e-mail interno automático.
+  const DOMINIO_USUARIO = "golaundry.local";
+  function resolveEmail(v){
+    v = (v || "").trim();
+    if(!v) return "";
+    if(v.includes("@")) return v.toLowerCase();
+    return v.toLowerCase().replace(/\s+/g, "") + "@" + DOMINIO_USUARIO;
+  }
+
   // ---------- CONFIG (config.xml compartilhado em rede via /api/config) ----------
   let appConfig = { duracaoPadrao: { lavadora: 50, secadora: 40 } };
 
@@ -373,8 +382,8 @@
   }
 
   $("btnLogin").onclick = async () => {
-    const email = $("email").value.trim(), password = $("password").value;
-    if(!email || !password){ showMsg("Preencha e-mail e senha."); return; }
+    const email = resolveEmail($("email").value), password = $("password").value;
+    if(!email || !password){ showMsg("Preencha e-mail/usuário e senha."); return; }
     $("btnLogin").disabled = true;
     const { error } = await sb.auth.signInWithPassword({ email, password });
     $("btnLogin").disabled = false;
@@ -383,8 +392,8 @@
   };
 
   $("btnSignup").onclick = async () => {
-    const email = $("email").value.trim(), password = $("password").value;
-    if(!email || !password){ showMsg("Preencha e-mail e senha para criar a conta."); return; }
+    const email = resolveEmail($("email").value), password = $("password").value;
+    if(!email || !password){ showMsg("Preencha e-mail/usuário e senha para criar a conta."); return; }
     if(password.length < 6){ showMsg("A senha deve ter ao menos 6 caracteres."); return; }
     $("btnSignup").disabled = true;
     const { data, error } = await sb.auth.signUp({ email, password });
