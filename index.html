@@ -262,14 +262,11 @@
     Dúvidas? <a href="https://wa.me/5541999999999" target="_blank">Fale no WhatsApp</a> · @golaundrysmart
   </footer>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
   // ---- CONFIGURAÇÃO DA SESSÃO ----
   // Se a URL trouxer ?m=<id da máquina>, buscamos a máquina e a sessão ativa
-  // no banco (Supabase) via função pública status_maquina. Sem ?m, caímos no
-  // modo demo/legado lendo ?maquina=1&tipo=lavagem&duracao=50 da URL.
-  const SUPA_URL = "https://mreekkooyrhpwkqhldrt.supabase.co";
-  const SUPA_KEY = "sb_publishable_vUxewmHXiRyn77WcjGdWmQ_4tGTq0JU";
+  // pela API pública /api/status. Sem ?m, caímos no modo demo/legado lendo
+  // ?maquina=1&tipo=lavagem&duracao=50 da URL.
 
   const CIRC = 2 * Math.PI * 110; // 691.15
   const ringFg = document.getElementById('ringFg');
@@ -350,18 +347,17 @@
     const params = new URLSearchParams(window.location.search);
     const mId = params.get('m');
     if(mId){
-      if(typeof supabase === 'undefined'){ renderErro('Não foi possível conectar. Verifique sua internet e tente novamente.'); return; }
       try{
-        const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
-        const { data, error } = await sb.rpc('status_maquina', { p_maquina: mId });
-        if(error || !data || !data.maquina){ renderErro('Máquina não encontrada. Confira o QR code.'); return; }
+        const r = await fetch('/api/status?m=' + encodeURIComponent(mId), { cache:'no-store' });
+        const data = await r.json().catch(()=>null);
+        if(!r.ok || !data || !data.ok || !data.maquina){ renderErro('Máquina não encontrada. Confira o QR code.'); return; }
         const mq = data.maquina;
-        maquina = mq.nome_exibicao;
+        maquina = mq.nomeExibicao;
         setTag(maquina, mq.tipo);
         if(data.sessao && data.sessao.status === 'ativa'){
-          startTimer(new Date(data.sessao.inicio), data.sessao.duracao_min);
+          startTimer(new Date(data.sessao.inicio), data.sessao.duracaoMin);
         } else {
-          renderIdle(mq.duracao_min);
+          renderIdle(mq.duracaoMin);
         }
       }catch(e){ renderErro('Não foi possível carregar os dados da máquina.'); }
     } else {

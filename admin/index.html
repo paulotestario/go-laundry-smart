@@ -259,18 +259,15 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script>
-  const SUPABASE_URL = "https://mreekkooyrhpwkqhldrt.supabase.co";
-  const SUPABASE_KEY = "sb_publishable_vUxewmHXiRyn77WcjGdWmQ_4tGTq0JU";
-  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
+  // ===== Admin sem Supabase: tudo via /api/* (JSON no Vercel Blob), sessão por token. =====
   const $ = (id) => document.getElementById(id);
   const loginView = $("loginView"), appView = $("appView");
   let currentFilialId = null;
   let editFilialId = null, editMaquinaId = null;
   let filiaisCache = [];
+  let appConfig = { duracaoPadrao: { lavadora: 50, secadora: 40 } };
   const INSTRUCAO_QR = "Escaneie para acompanhar seu ciclo pelo celular";
 
   function showMsg(text, type){
@@ -278,134 +275,100 @@
     m.textContent = text; m.className = "msg " + (type || "err");
   }
 
-  // Aceita e-mail ou usuário: se não tiver "@", vira um e-mail interno automático.
-  const DOMINIO_USUARIO = "golaundry.local";
-  function resolveEmail(v){
-    v = (v || "").trim();
-    if(!v) return "";
-    if(v.includes("@")) return v.toLowerCase();
-    return v.toLowerCase().replace(/\s+/g, "") + "@" + DOMINIO_USUARIO;
+  // ---------- Token + helper de API ----------
+  function getToken(){ try{ return localStorage.getItem("gls_token") || ""; }catch{ return ""; } }
+  function setToken(t){ try{ if(t) localStorage.setItem("gls_token", t); else localStorage.removeItem("gls_token"); }catch{} }
+  async function api(path, opts){
+    opts = opts || {};
+    const headers = Object.assign({}, opts.headers || {});
+    const tok = getToken(); if(tok) headers["Authorization"] = "Bearer " + tok;
+    let body = opts.body;
+    if(body !== undefined){ headers["Content-Type"] = "application/json"; body = JSON.stringify(body); }
+    let r;
+    try{ r = await fetch(path, { method: opts.method || "GET", headers, body, cache: "no-store" }); }
+    catch(e){ return { ok:false, status:0, data:{ erro:true, mensagem:"Sem conexão." } }; }
+    let data = null; try{ data = await r.json(); }catch{}
+    return { ok: r.ok, status: r.status, data };
   }
 
-  // ---------- CONFIG (config.xml compartilhado em rede via /api/config) ----------
-  let appConfig = { duracaoPadrao: { lavadora: 50, secadora: 40 } };
-
+  // ---------- Config ----------
   function getCfgDur(tipo){
     const v = tipo === "secadora" ? appConfig.duracaoPadrao.secadora : appConfig.duracaoPadrao.lavadora;
     return (v && v > 0) ? v : (tipo === "secadora" ? 40 : 50);
   }
-
-  function parseConfigXml(xmlText){
-    try{
-      const doc = new DOMParser().parseFromString(xmlText, "application/xml");
-      if(doc.querySelector("parsererror")) return null;
-      const g = (sel, def) => { const el = doc.querySelector(sel); const n = el ? parseInt(el.textContent, 10) : NaN; return Number.isFinite(n) ? n : def; };
-      return { duracaoPadrao: {
-        lavadora: g("config > duracaoPadrao > lavadora", 50),
-        secadora: g("config > duracaoPadrao > secadora", 40),
-      }};
-    }catch{ return null; }
-  }
-
-  // Cabeçalho de autenticação (token do Supabase) para a API protegida.
-  async function authHeader(){
-    const { data:{ session } } = await sb.auth.getSession();
-    return session ? { "Authorization": "Bearer " + session.access_token } : {};
-  }
-
-  // Carrega a config da rede (chamado no login). Se a API falhar, mantém o padrão.
   async function loadConfig(){
-    try{
-      const r = await fetch("/api/config", { cache:"no-store", headers: await authHeader() });
-      if(r.ok){ const cfg = parseConfigXml(await r.text()); if(cfg) appConfig = cfg; }
-    }catch(e){ /* offline / API indisponível — segue com o padrão */ }
+    const r = await api("/api/config", { method:"GET" });
+    if(r.ok && r.data && r.data.duracaoPadrao) appConfig = r.data;
   }
-
   function loadConfigUI(){
     $("cfgDurLavadora").value = appConfig.duracaoPadrao.lavadora;
     $("cfgDurSecadora").value = appConfig.duracaoPadrao.secadora;
   }
-
   $("btnSaveConfig").onclick = async () => {
     const l = parseInt($("cfgDurLavadora").value, 10) || 50;
     const s = parseInt($("cfgDurSecadora").value, 10) || 40;
     const btn = $("btnSaveConfig"), el = $("cfgSaved");
     btn.disabled = true; el.style.color = "var(--muted)"; el.textContent = "Salvando…"; el.style.display = "inline";
-    try{
-      const r = await fetch("/api/config", {
-        method:"POST", headers:{ "Content-Type":"application/json", ...(await authHeader()) },
-        body: JSON.stringify({ duracaoPadrao:{ lavadora:l, secadora:s } }),
-      });
-      if(!r.ok){ let msg = "Erro ao salvar"; try{ const j = await r.json(); if(j.mensagem) msg = j.mensagem; }catch{} throw new Error(msg); }
-      const cfg = parseConfigXml(await r.text()); if(cfg) appConfig = cfg;
-      loadConfigUI();
+    const r = await api("/api/config", { method:"POST", body:{ duracaoPadrao:{ lavadora:l, secadora:s } } });
+    btn.disabled = false;
+    if(r.ok && r.data && r.data.duracaoPadrao){
+      appConfig = r.data; loadConfigUI();
       el.style.color = "var(--ok)"; el.textContent = "✓ Salvo em rede"; setTimeout(() => el.style.display = "none", 2200);
-    }catch(err){
-      el.style.color = "var(--danger)"; el.textContent = "✕ " + err.message;
-    }finally{ btn.disabled = false; }
+    } else {
+      el.style.color = "var(--danger)"; el.textContent = "✕ " + (r.data && r.data.mensagem ? r.data.mensagem : "Erro ao salvar");
+    }
   };
 
-  // ---------- NAVEGAÇÃO (abas) ----------
+  // ---------- Navegação (abas) ----------
   function showView(name){
-    ["cadastro","qrprint","config"].forEach(v => {
-      $("view-"+v).classList.toggle("hidden", v !== name);
-    });
-    document.querySelectorAll("nav.tabs button").forEach(b => {
-      b.classList.toggle("active", b.dataset.view === name);
-    });
+    ["cadastro","qrprint","config"].forEach(v => $("view-"+v).classList.toggle("hidden", v !== name));
+    document.querySelectorAll("nav.tabs button").forEach(b => b.classList.toggle("active", b.dataset.view === name));
     if(name === "qrprint") populateQrFilialSelect();
     if(name === "config") loadConfigUI();
   }
-  document.querySelectorAll("nav.tabs button").forEach(b => {
-    b.onclick = () => showView(b.dataset.view);
-  });
+  document.querySelectorAll("nav.tabs button").forEach(b => { b.onclick = () => showView(b.dataset.view); });
 
-  // ---------- AUTH ----------
+  // ---------- Auth ----------
   async function refreshAuth(){
-    const { data:{ session } } = await sb.auth.getSession();
-    if(session){
-      const { data: isAdmin, error } = await sb.rpc("is_admin");
-      if(error || !isAdmin){
-        await sb.auth.signOut();
-        loginView.classList.remove("hidden"); appView.classList.add("hidden");
-        showMsg("Esta conta não tem permissão de administrador.", "err");
+    if(getToken()){
+      const r = await api("/api/auth", { method:"GET" });
+      if(r.ok && r.data && !r.data.erro){
+        $("whoami").textContent = r.data.identidade;
+        loginView.classList.add("hidden"); appView.classList.remove("hidden");
+        await loadConfig();
+        showView("cadastro");
+        loadFiliais();
         return;
       }
-      $("whoami").textContent = session.user.email;
-      loginView.classList.add("hidden"); appView.classList.remove("hidden");
-      await loadConfig();
-      showView("cadastro");
-      loadFiliais();
-    } else {
-      loginView.classList.remove("hidden"); appView.classList.add("hidden");
+      setToken(""); // token inválido/expirado
     }
+    loginView.classList.remove("hidden"); appView.classList.add("hidden");
   }
 
   $("btnLogin").onclick = async () => {
-    const email = resolveEmail($("email").value), password = $("password").value;
-    if(!email || !password){ showMsg("Preencha e-mail/usuário e senha."); return; }
+    const identidade = $("email").value.trim(), senha = $("password").value;
+    if(!identidade || !senha){ showMsg("Preencha e-mail/usuário e senha."); return; }
     $("btnLogin").disabled = true;
-    const { error } = await sb.auth.signInWithPassword({ email, password });
+    const r = await api("/api/auth", { method:"POST", body:{ acao:"login", identidade, senha } });
     $("btnLogin").disabled = false;
-    if(error){ showMsg(error.message); return; }
-    refreshAuth();
+    if(!r.ok || !r.data || r.data.erro){ showMsg(r.data && r.data.mensagem ? r.data.mensagem : "Falha no login."); return; }
+    setToken(r.data.token); refreshAuth();
   };
 
   $("btnSignup").onclick = async () => {
-    const email = resolveEmail($("email").value), password = $("password").value;
-    if(!email || !password){ showMsg("Preencha e-mail/usuário e senha para criar a conta."); return; }
-    if(password.length < 6){ showMsg("A senha deve ter ao menos 6 caracteres."); return; }
+    const identidade = $("email").value.trim(), senha = $("password").value;
+    if(!identidade || !senha){ showMsg("Preencha e-mail/usuário e senha para criar a conta."); return; }
+    if(senha.length < 6){ showMsg("A senha deve ter ao menos 6 caracteres."); return; }
     $("btnSignup").disabled = true;
-    const { data, error } = await sb.auth.signUp({ email, password });
+    const r = await api("/api/auth", { method:"POST", body:{ acao:"cadastrar", identidade, senha } });
     $("btnSignup").disabled = false;
-    if(error){ showMsg(error.message); return; }
-    if(data.session){ refreshAuth(); }
-    else { showMsg("Conta criada! Confirme o e-mail que enviamos e depois faça login.", "ok"); }
+    if(!r.ok || !r.data || r.data.erro){ showMsg(r.data && r.data.mensagem ? r.data.mensagem : "Falha no cadastro."); return; }
+    setToken(r.data.token); showMsg("Conta criada!", "ok"); refreshAuth();
   };
 
-  $("btnLogout").onclick = async () => { await sb.auth.signOut(); refreshAuth(); };
+  $("btnLogout").onclick = () => { setToken(""); refreshAuth(); };
 
-  // ---------- FILIAIS ----------
+  // ---------- Filiais ----------
   function resetFilialForm(){
     editFilialId = null;
     $("fNome").value = ""; $("fCidade").value = ""; $("fEndereco").value = ""; $("fTelefone").value = "";
@@ -421,18 +384,19 @@
       telefone: $("fTelefone").value.trim() || null,
     };
     if(!payload.nome){ alert("Informe o nome da filial."); return; }
-    let res;
-    if(editFilialId) res = await sb.from("filiais").update(payload).eq("id", editFilialId);
-    else res = await sb.from("filiais").insert(payload);
-    if(res.error){ alert("Erro: " + res.error.message); return; }
+    const r = editFilialId
+      ? await api("/api/filiais?id=" + encodeURIComponent(editFilialId), { method:"PUT", body:payload })
+      : await api("/api/filiais", { method:"POST", body:payload });
+    if(!r.ok || (r.data && r.data.erro)){ alert("Erro: " + (r.data && r.data.mensagem ? r.data.mensagem : "falha")); return; }
     $("filialForm").classList.add("hidden"); resetFilialForm(); loadFiliais();
   };
 
   async function loadFiliais(){
-    const { data, error } = await sb.from("filiais").select("*").order("created_at");
     const list = $("filialList");
-    if(error){ list.innerHTML = '<div class="empty">Erro ao carregar: '+error.message+'</div>'; return; }
-    filiaisCache = data || [];
+    const r = await api("/api/filiais", { method:"GET" });
+    if(!r.ok){ list.innerHTML = '<div class="empty">Erro ao carregar.</div>'; return; }
+    const data = (r.data && r.data.filiais) || [];
+    filiaisCache = data;
     if(!data.length){ list.innerHTML = '<div class="empty">Nenhuma filial cadastrada ainda.</div>'; return; }
     list.innerHTML = "";
     data.forEach(f => {
@@ -458,8 +422,8 @@
 
   async function delFilial(f){
     if(!confirm('Excluir a filial "'+f.nome+'" e TODAS as máquinas dela?')) return;
-    const { error } = await sb.from("filiais").delete().eq("id", f.id);
-    if(error){ alert("Erro: "+error.message); return; }
+    const r = await api("/api/filiais?id=" + encodeURIComponent(f.id), { method:"DELETE" });
+    if(!r.ok || (r.data && r.data.erro)){ alert("Erro: " + (r.data && r.data.mensagem ? r.data.mensagem : "falha")); return; }
     if(currentFilialId === f.id){ currentFilialId = null; $("maquinasPanel").classList.add("hidden"); }
     loadFiliais();
   }
@@ -473,16 +437,13 @@
     $("maquinasPanel").scrollIntoView({ behavior:"smooth", block:"start" });
   }
 
-  // ---------- MAQUINAS ----------
+  // ---------- Máquinas ----------
   function resetMaquinaForm(){
     editMaquinaId = null;
     $("mNome").value = ""; $("mTipo").value = "lavadora"; $("mConjunto").value = "";
     $("mDuracao").value = getCfgDur("lavadora");
   }
-  // ao trocar o tipo no cadastro de nova máquina, sugere a duração padrão daquele tipo
-  $("mTipo").addEventListener("change", () => {
-    if(!editMaquinaId) $("mDuracao").value = getCfgDur($("mTipo").value);
-  });
+  $("mTipo").addEventListener("change", () => { if(!editMaquinaId) $("mDuracao").value = getCfgDur($("mTipo").value); });
   $("btnNewMaquina").onclick = () => { resetMaquinaForm(); $("maquinaForm").classList.remove("hidden"); $("mNome").focus(); };
   $("btnCancelMaquina").onclick = () => { $("maquinaForm").classList.add("hidden"); resetMaquinaForm(); };
 
@@ -490,42 +451,40 @@
     const nome = $("mNome").value.trim();
     const tipo = $("mTipo").value;
     if(!nome){ alert("Informe o nome/número da máquina."); return; }
-    const idInterno = (tipo === "lavadora" ? "MAQ-" : "SEC-") + nome.toUpperCase();
     const payload = {
-      filial_id: currentFilialId,
-      id_interno: idInterno,
-      nome_exibicao: nome,
+      filialId: currentFilialId,
+      nomeExibicao: nome,
       tipo: tipo,
-      conjunto: $("mConjunto").value ? parseInt($("mConjunto").value) : null,
-      duracao_min: parseInt($("mDuracao").value) || getCfgDur(tipo),
+      conjunto: $("mConjunto").value ? parseInt($("mConjunto").value, 10) : null,
+      duracaoMin: parseInt($("mDuracao").value, 10) || getCfgDur(tipo),
     };
-    let res;
-    if(editMaquinaId) res = await sb.from("maquinas").update(payload).eq("id", editMaquinaId);
-    else res = await sb.from("maquinas").insert(payload);
-    if(res.error){ alert("Erro: " + res.error.message); return; }
+    const r = editMaquinaId
+      ? await api("/api/maquinas?id=" + encodeURIComponent(editMaquinaId), { method:"PUT", body:payload })
+      : await api("/api/maquinas", { method:"POST", body:payload });
+    if(!r.ok || (r.data && r.data.erro)){ alert("Erro: " + (r.data && r.data.mensagem ? r.data.mensagem : "falha")); return; }
     $("maquinaForm").classList.add("hidden"); resetMaquinaForm(); loadMaquinas();
   };
 
   async function loadMaquinas(){
     const list = $("maquinaList");
-    const { data, error } = await sb.from("maquinas").select("*").eq("filial_id", currentFilialId).order("tipo").order("nome_exibicao");
-    if(error){ list.innerHTML = '<div class="empty">Erro: '+error.message+'</div>'; return; }
+    const r = await api("/api/maquinas?filialId=" + encodeURIComponent(currentFilialId), { method:"GET" });
+    if(!r.ok){ list.innerHTML = '<div class="empty">Erro ao carregar.</div>'; return; }
+    const data = (r.data && r.data.maquinas) || [];
     if(!data.length){ list.innerHTML = '<div class="empty">Nenhuma máquina nesta filial ainda.</div>'; return; }
-    const ids = data.map(m => m.id);
-    const { data: sess } = await sb.from("sessoes").select("maquina_id,inicio,duracao_min").eq("status","ativa").in("maquina_id", ids);
-    const ativa = {}; (sess||[]).forEach(s => { ativa[s.maquina_id] = s; });
+    // ordena por tipo e nome
+    data.sort((a,b) => (a.tipo>b.tipo?1:a.tipo<b.tipo?-1:0) || String(a.nomeExibicao).localeCompare(String(b.nomeExibicao)));
     list.innerHTML = "";
     data.forEach(m => {
       const div = document.createElement("div");
       div.className = "item";
       const tag = m.tipo === "lavadora" ? '<span class="tag lav">Lavadora</span>' : '<span class="tag sec">Secadora</span>';
-      const emUso = ativa[m.id];
+      const emUso = m.sessaoAtiva;
       const estado = emUso
         ? '<span style="color:var(--ok);font-weight:800">&nbsp;● Em uso</span>'
         : '<span style="color:var(--muted)">&nbsp;○ Livre</span>';
-      const meta = [m.conjunto ? "Conjunto "+m.conjunto : null, m.duracao_min+" min", m.id_interno].filter(Boolean).join(" · ");
+      const meta = [m.conjunto ? "Conjunto "+m.conjunto : null, m.duracaoMin+" min", m.idInterno].filter(Boolean).join(" · ");
       div.innerHTML =
-        '<div class="info"><div class="name">'+tag+' &nbsp;'+esc(m.nome_exibicao)+estado+'</div><div class="meta">'+esc(meta)+'</div></div>'+
+        '<div class="info"><div class="name">'+tag+' &nbsp;'+esc(m.nomeExibicao)+estado+'</div><div class="meta">'+esc(meta)+'</div></div>'+
         '<div class="acts">'+
           '<button class="btn sec sm" data-act="qr">QR</button>'+
           (emUso ? '<button class="btn sec sm" data-act="fim">Finalizar</button>'
@@ -538,59 +497,50 @@
       else div.querySelector('[data-act="ini"]').onclick = () => iniciarCiclo(m);
       div.querySelector('[data-act="edit"]').onclick = () => {
         editMaquinaId = m.id;
-        $("mNome").value = m.nome_exibicao; $("mTipo").value = m.tipo;
-        $("mConjunto").value = m.conjunto||""; $("mDuracao").value = m.duracao_min;
+        $("mNome").value = m.nomeExibicao; $("mTipo").value = m.tipo;
+        $("mConjunto").value = m.conjunto||""; $("mDuracao").value = m.duracaoMin;
         $("maquinaForm").classList.remove("hidden");
       };
       div.querySelector('[data-act="del"]').onclick = async () => {
-        if(!confirm('Excluir a máquina "'+m.nome_exibicao+'"?')) return;
-        const { error } = await sb.from("maquinas").delete().eq("id", m.id);
-        if(error){ alert("Erro: "+error.message); return; }
+        if(!confirm('Excluir a máquina "'+m.nomeExibicao+'"?')) return;
+        const rr = await api("/api/maquinas?id=" + encodeURIComponent(m.id), { method:"DELETE" });
+        if(!rr.ok || (rr.data && rr.data.erro)){ alert("Erro: " + (rr.data && rr.data.mensagem ? rr.data.mensagem : "falha")); return; }
         loadMaquinas();
       };
       list.appendChild(div);
     });
   }
 
-  // Inicia um ciclo (teste manual — no futuro isso será disparado pelo pagamento/Arduino)
   async function iniciarCiclo(m){
-    if(!confirm('Iniciar um ciclo de '+m.duracao_min+' min na máquina '+m.nome_exibicao+'?')) return;
-    const { error } = await sb.from("sessoes").insert({ maquina_id:m.id, duracao_min:m.duracao_min, status:'ativa' });
-    if(error){ alert("Erro: "+error.message); return; }
+    if(!confirm('Iniciar um ciclo de '+m.duracaoMin+' min na máquina '+m.nomeExibicao+'?')) return;
+    const r = await api("/api/sessoes", { method:"POST", body:{ maquinaId:m.id, acao:"iniciar", duracaoMin:m.duracaoMin } });
+    if(!r.ok || (r.data && r.data.erro)){ alert("Erro: " + (r.data && r.data.mensagem ? r.data.mensagem : "falha")); return; }
     loadMaquinas();
   }
   async function finalizarCiclo(m){
-    const { error } = await sb.from("sessoes").update({ status:'finalizada' }).eq("maquina_id", m.id).eq("status","ativa");
-    if(error){ alert("Erro: "+error.message); return; }
+    const r = await api("/api/sessoes", { method:"POST", body:{ maquinaId:m.id, acao:"finalizar" } });
+    if(!r.ok || (r.data && r.data.erro)){ alert("Erro: " + (r.data && r.data.mensagem ? r.data.mensagem : "falha")); return; }
     loadMaquinas();
   }
 
-  // ---------- QR INDIVIDUAL (modal) ----------
+  // ---------- QR individual (modal) ----------
   function clienteUrl(m){ return location.origin + "/?m=" + m.id; }
   function showQR(m){
-    $("qrTitle").textContent = "Máquina " + m.nome_exibicao + " · " + (m.tipo === 'lavadora' ? 'Lavadora' : 'Secadora');
+    $("qrTitle").textContent = "Máquina " + m.nomeExibicao + " · " + (m.tipo === 'lavadora' ? 'Lavadora' : 'Secadora');
     $("qrUrl").textContent = clienteUrl(m);
     const qr = qrcode(0, 'H'); qr.addData(clienteUrl(m)); qr.make();
     $("qrRender").innerHTML = qr.createSvgTag({ cellSize:6, margin:2, scalable:true });
     $("qrModal").classList.remove("hidden");
   }
   $("qrClose").onclick = () => $("qrModal").classList.add("hidden");
-  $("btnPrintOne").onclick = () => {
-    document.body.classList.add("print-modal");
-    window.print();
-    document.body.classList.remove("print-modal");
-  };
+  $("btnPrintOne").onclick = () => { document.body.classList.add("print-modal"); window.print(); document.body.classList.remove("print-modal"); };
 
-  // ---------- IMPRESSÃO EM GRADE ----------
+  // ---------- Impressão em grade ----------
   function populateQrFilialSelect(){
     const sel = $("qrFilialSelect");
     const prev = sel.value;
     sel.innerHTML = '<option value="">Selecione uma filial…</option>';
-    filiaisCache.forEach(f => {
-      const o = document.createElement("option");
-      o.value = f.id; o.textContent = f.nome; sel.appendChild(o);
-    });
-    // mantém a seleção atual, ou usa a filial selecionada no cadastro
+    filiaisCache.forEach(f => { const o = document.createElement("option"); o.value = f.id; o.textContent = f.nome; sel.appendChild(o); });
     if(prev && filiaisCache.some(f => f.id === prev)) sel.value = prev;
     else if(currentFilialId && filiaisCache.some(f => f.id === currentFilialId)) sel.value = currentFilialId;
     if(sel.value) renderQrGrid(sel.value);
@@ -605,9 +555,11 @@
   async function renderQrGrid(filialId){
     const grid = $("qrGrid");
     grid.innerHTML = '<div class="empty no-print">Gerando QRs…</div>';
-    const { data, error } = await sb.from("maquinas").select("*").eq("filial_id", filialId).order("tipo").order("nome_exibicao");
-    if(error){ grid.innerHTML = '<div class="empty no-print">Erro: '+error.message+'</div>'; return; }
+    const r = await api("/api/maquinas?filialId=" + encodeURIComponent(filialId), { method:"GET" });
+    if(!r.ok){ grid.innerHTML = '<div class="empty no-print">Erro ao carregar.</div>'; return; }
+    const data = (r.data && r.data.maquinas) || [];
     if(!data.length){ grid.innerHTML = '<div class="empty no-print">Nenhuma máquina nesta filial.</div>'; return; }
+    data.sort((a,b) => (a.tipo>b.tipo?1:a.tipo<b.tipo?-1:0) || String(a.nomeExibicao).localeCompare(String(b.nomeExibicao)));
     grid.innerHTML = "";
     data.forEach(m => {
       const qr = qrcode(0, 'H'); qr.addData(clienteUrl(m)); qr.make();
@@ -616,7 +568,7 @@
       cell.className = "qr-cell";
       cell.innerHTML =
         '<img class="cell-logo" src="../logo.svg" alt="" onerror="this.style.display=\'none\'">'+
-        '<div class="cell-name">Máquina '+esc(m.nome_exibicao)+'</div>'+
+        '<div class="cell-name">Máquina '+esc(m.nomeExibicao)+'</div>'+
         '<div class="cell-type">'+(m.tipo === 'lavadora' ? 'Lavadora' : 'Secadora')+'</div>'+
         svg+
         '<div class="cell-instr">'+INSTRUCAO_QR+'</div>';
@@ -626,17 +578,15 @@
 
   $("btnPrintSheet").onclick = () => {
     if(!$("qrGrid").querySelector(".qr-cell")){ alert("Selecione uma filial com máquinas para imprimir."); return; }
-    document.body.classList.add("print-sheet");
-    window.print();
-    document.body.classList.remove("print-sheet");
+    document.body.classList.add("print-sheet"); window.print(); document.body.classList.remove("print-sheet");
   };
 
   function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
-  // enter para logar
   $("password").addEventListener("keydown", e => { if(e.key === "Enter") $("btnLogin").click(); });
 
   refreshAuth();
 </script>
+
 </body>
 </html>
