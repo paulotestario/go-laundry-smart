@@ -10,7 +10,8 @@ android {
     defaultConfig {
         applicationId = "com.paulotestario.claudevoz"
         minSdk = 26
-        targetSdk = 35
+        // 34: evita o modo edge-to-edge obrigatório do Android 15.
+        targetSdk = 34
         versionCode = 1
         versionName = "1.0"
     }
