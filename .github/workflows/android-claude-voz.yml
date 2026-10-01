@@ -27,10 +27,9 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - uses: android-actions/setup-android@v3
-
       - uses: gradle/actions/setup-gradle@v4
 
+      # O runner ubuntu-latest já vem com o Android SDK (ANDROID_HOME).
       - name: Compilar APK
         run: |
           chmod +x gradlew
