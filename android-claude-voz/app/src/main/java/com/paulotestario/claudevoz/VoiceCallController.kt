@@ -2,6 +2,10 @@ package com.paulotestario.claudevoz
 
 import android.content.Context
 import android.content.Intent
+import android.media.AudioAttributes
+import android.media.session.MediaSession
+import android.media.session.PlaybackState
+import android.view.KeyEvent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -34,15 +38,24 @@ class VoiceCallController(
         fun onClaudeFinished()
         fun onError(message: String)
         fun onVolume(rms: Float)
+        /** [device] é o óculos/fone Bluetooth em uso, ou null se o áudio está no celular. */
+        fun onAudioRoute(device: String?, isMetaGlasses: Boolean)
     }
 
     private val main = Handler(Looper.getMainLooper())
     private val worker = Executors.newSingleThreadExecutor()
 
+    private var mediaSession: MediaSession? = null
     private var recognizer: SpeechRecognizer? = null
     private var tts: TextToSpeech? = null
     private var chat: ClaudeChat? = null
     private val splitter = SentenceSplitter()
+    private val glasses = GlassesAudio(context, object : GlassesAudio.Listener {
+        override fun onRouteChanged(name: String?, isMetaGlasses: Boolean) {
+            applyTtsAudioRoute()
+            listener.onAudioRoute(name, isMetaGlasses)
+        }
+    })
 
     var state = State.IDLE
         private set
@@ -62,6 +75,8 @@ class VoiceCallController(
         recognizer = SpeechRecognizer.createSpeechRecognizer(context).apply {
             setRecognitionListener(recognitionListener)
         }
+        if (prefs.useGlasses) glasses.start()
+        startMediaSession()
         tts = TextToSpeech(context) { status ->
             main.post {
                 if (state != State.CONNECTING) return@post
@@ -71,7 +86,10 @@ class VoiceCallController(
                     return@post
                 }
                 configureTts()
-                listen()
+                // O canal de voz do Bluetooth leva ~1s para abrir; sem esperar,
+                // o começo da fala seria gravado pelo microfone do celular.
+                if (glasses.routedDevice != null) main.postDelayed({ if (state == State.CONNECTING) listen() }, 1000)
+                else listen()
             }
         }
     }
@@ -84,6 +102,9 @@ class VoiceCallController(
         recognizer = null
         tts?.run { stop(); shutdown() }
         tts = null
+        glasses.stop()
+        mediaSession?.run { isActive = false; release() }
+        mediaSession = null
         splitter.reset()
         setState(State.IDLE)
     }
@@ -135,6 +156,7 @@ class VoiceCallController(
             listener.onError("A voz em ${locale.displayName} não está instalada. Usando a voz padrão.")
         }
         engine.setSpeechRate(prefs.speechRate)
+        applyTtsAudioRoute()
         engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(utteranceId: String) {
                 main.post { if (ownedByCurrentTurn(utteranceId)) setState(State.SPEAKING) }
@@ -154,6 +176,61 @@ class VoiceCallController(
             }
         })
     }
+
+    /**
+     * No óculos a voz do Claude sai pelo canal de chamada (como numa ligação);
+     * no celular, pelo canal de assistente.
+     */
+    private fun applyTtsAudioRoute() {
+        val engine = tts ?: return
+        val usage = if (glasses.routedDevice != null) AudioAttributes.USAGE_VOICE_COMMUNICATION
+        else AudioAttributes.USAGE_ASSISTANT
+        engine.setAudioAttributes(
+            AudioAttributes.Builder()
+                .setUsage(usage)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                .build()
+        )
+    }
+
+    /**
+     * Recebe o toque no touchpad do óculos (ou o botão do fone), que chega como
+     * botão de mídia play/pause: interrompe o Claude ou encerra sua fala.
+     */
+    private fun startMediaSession() {
+        mediaSession = MediaSession(context, "ClaudeVoz").apply {
+            setCallback(object : MediaSession.Callback() {
+                override fun onMediaButtonEvent(intent: Intent): Boolean {
+                    @Suppress("DEPRECATION")
+                    val key = intent.getParcelableExtra<KeyEvent>(Intent.EXTRA_KEY_EVENT)
+                        ?: return false
+                    if (key.action != KeyEvent.ACTION_DOWN) return true
+                    return when (key.keyCode) {
+                        KeyEvent.KEYCODE_HEADSETHOOK,
+                        KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
+                        KeyEvent.KEYCODE_MEDIA_PLAY,
+                        KeyEvent.KEYCODE_MEDIA_PAUSE -> {
+                            main.post { interrupt() }
+                            true
+                        }
+                        else -> false
+                    }
+                }
+            }, main)
+            setPlaybackState(
+                PlaybackState.Builder()
+                    .setActions(
+                        PlaybackState.ACTION_PLAY_PAUSE or PlaybackState.ACTION_PLAY or PlaybackState.ACTION_PAUSE
+                    )
+                    .setState(PlaybackState.STATE_PLAYING, 0, 1f)
+                    .build()
+            )
+            isActive = true
+        }
+    }
+
+    /** Nome do óculos/fone Bluetooth em uso na ligação, ou null. */
+    val audioDevice: String? get() = glasses.routedDevice
 
     private fun listen() {
         if (muted) {

@@ -25,6 +25,12 @@
     <string name="speech_rate_value">Velocidade da fala: %.1fx</string>
     <string name="personality">Instruções extras (opcional)</string>
     <string name="personality_hint">Ex.: me chame de Paulo e responda com bom humor</string>
+    <string name="use_glasses">Usar óculos Ray-Ban Meta / fone Bluetooth</string>
+    <string name="use_glasses_help">Quando o óculos estiver conectado, a ligação usa o microfone e os alto-falantes dele. Toque no touchpad do óculos para interromper o Claude.</string>
+    <string name="route_glasses">🕶️ No óculos: %s</string>
+    <string name="route_bluetooth">🎧 No Bluetooth: %s</string>
+    <string name="route_glasses_ready">🕶️ %s conectado — a ligação vai usar o óculos</string>
+    <string name="route_phone">📱 Áudio no celular</string>
     <string name="save">Salvar</string>
     <string name="saved">Configurações salvas</string>
 </resources>

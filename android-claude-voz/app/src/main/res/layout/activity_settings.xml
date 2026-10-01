@@ -53,6 +53,21 @@
             android:layout_width="match_parent"
             android:layout_height="48dp" />
 
+        <CheckBox
+            android:id="@+id/useGlasses"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="@string/use_glasses"
+            android:textColor="@color/text" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/use_glasses_help"
+            android:textColor="@color/text_muted"
+            android:textSize="13sp" />
+
         <TextView style="@style/SettingsLabel" android:text="@string/personality" />
 
         <EditText

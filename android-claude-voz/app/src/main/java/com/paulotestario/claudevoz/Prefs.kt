@@ -23,6 +23,11 @@ class Prefs(context: Context) {
         get() = sp.getString("language", "pt-BR") ?: "pt-BR"
         set(v) = sp.edit().putString("language", v).apply()
 
+    /** Usar o óculos Ray-Ban Meta / fone Bluetooth como microfone e alto-falante. */
+    var useGlasses: Boolean
+        get() = sp.getBoolean("use_glasses", true)
+        set(v) = sp.edit().putBoolean("use_glasses", v).apply()
+
     var personality: String
         get() = sp.getString("personality", "") ?: ""
         set(v) = sp.edit().putString("personality", v.trim()).apply()

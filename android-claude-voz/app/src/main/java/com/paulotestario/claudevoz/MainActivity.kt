@@ -4,6 +4,8 @@ import android.Manifest
 import android.animation.ValueAnimator
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.AudioDeviceInfo
+import android.media.AudioManager
 import android.os.Bundle
 import android.speech.SpeechRecognizer
 import android.text.SpannableStringBuilder
@@ -29,6 +31,7 @@ class MainActivity : AppCompatActivity(), VoiceCallController.Listener {
 
     private lateinit var orb: View
     private lateinit var status: TextView
+    private lateinit var audioRoute: TextView
     private lateinit var live: TextView
     private lateinit var transcript: TextView
     private lateinit var scroll: ScrollView
@@ -52,14 +55,15 @@ class MainActivity : AppCompatActivity(), VoiceCallController.Listener {
         prefs = Prefs(this)
         controller = VoiceCallController(this, prefs, this)
 
-        orb = findViewById(R.id.orb)
-        status = findViewById(R.id.status)
-        live = findViewById(R.id.live)
-        transcript = findViewById(R.id.transcript)
-        scroll = findViewById(R.id.scroll)
-        callButton = findViewById(R.id.callButton)
-        muteButton = findViewById(R.id.muteButton)
-        settingsButton = findViewById(R.id.settingsButton)
+        orb = findViewById<View>(R.id.orb)
+        status = findViewById<TextView>(R.id.status)
+        audioRoute = findViewById<TextView>(R.id.audioRoute)
+        live = findViewById<TextView>(R.id.live)
+        transcript = findViewById<TextView>(R.id.transcript)
+        scroll = findViewById<ScrollView>(R.id.scroll)
+        callButton = findViewById<ImageButton>(R.id.callButton)
+        muteButton = findViewById<ImageButton>(R.id.muteButton)
+        settingsButton = findViewById<ImageButton>(R.id.settingsButton)
 
         callButton.setOnClickListener { if (controller.isActive) controller.hangUp() else requestCall() }
         muteButton.setOnClickListener {
@@ -70,6 +74,11 @@ class MainActivity : AppCompatActivity(), VoiceCallController.Listener {
         settingsButton.setOnClickListener { startActivity(Intent(this, SettingsActivity::class.java)) }
 
         onStateChanged(VoiceCallController.State.IDLE)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (!controller.isActive) showIdleRoute()
     }
 
     override fun onDestroy() {
@@ -122,6 +131,7 @@ class MainActivity : AppCompatActivity(), VoiceCallController.Listener {
         muteButton.visibility = if (active) View.VISIBLE else View.INVISIBLE
         settingsButton.isEnabled = !active
         settingsButton.alpha = if (active) 0.4f else 1f
+        if (state == VoiceCallController.State.IDLE) showIdleRoute()
         if (state != VoiceCallController.State.LISTENING) live.text = ""
         if (active) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -153,6 +163,29 @@ class MainActivity : AppCompatActivity(), VoiceCallController.Listener {
 
     override fun onError(message: String) {
         Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+    }
+
+    override fun onAudioRoute(device: String?, isMetaGlasses: Boolean) {
+        audioRoute.visibility = View.VISIBLE
+        audioRoute.text = when {
+            device == null -> getString(R.string.route_phone)
+            isMetaGlasses -> getString(R.string.route_glasses, device)
+            else -> getString(R.string.route_bluetooth, device)
+        }
+    }
+
+    /** Antes da ligação: avisa se o óculos já está conectado ao celular. */
+    private fun showIdleRoute() {
+        val audio = getSystemService(AUDIO_SERVICE) as AudioManager
+        val device = audio.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+            .firstOrNull { it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO }
+        val name = device?.productName?.toString()?.takeIf { it.isNotBlank() }
+        if (name != null && prefs.useGlasses) {
+            audioRoute.visibility = View.VISIBLE
+            audioRoute.text = getString(R.string.route_glasses_ready, name)
+        } else {
+            audioRoute.visibility = View.GONE
+        }
     }
 
     override fun onVolume(rms: Float) {

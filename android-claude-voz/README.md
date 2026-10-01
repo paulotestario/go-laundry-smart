@@ -18,6 +18,23 @@ microfone ──► reconhecimento de voz do Android (pt-BR)
 - A conversa tem memória durante a ligação; cada nova ligação começa do zero.
 - A tela fica ligada durante a ligação.
 
+## Óculos Ray-Ban Meta 🕶️
+
+Com o óculos pareado ao celular, o app usa ele automaticamente na ligação:
+
+- **Microfone do óculos** → reconhecimento de voz (você fala com o celular no bolso).
+- **Alto-falantes do óculos** → voz do Claude, pelo canal de chamada, como numa ligação telefônica.
+- **Toque no touchpad do óculos** → interrompe o Claude (ou encerra sua fala), igual tocar no círculo.
+- Um selo no topo da tela mostra se o áudio está no óculos ou no celular. Se o óculos
+  desconectar no meio da ligação, o app volta para o microfone e o alto-falante do celular sozinho.
+
+Funciona também com qualquer fone Bluetooth. Dá para desligar em Configurações →
+"Usar óculos Ray-Ban Meta / fone Bluetooth".
+
+Limites: o comando "Hey Meta" continua sendo do Meta AI; a Meta não permite trocar o assistente.
+O áudio vai pelo perfil de chamada do Bluetooth, com qualidade de ligação telefônica (menor que a de música).
+O toque no touchpad depende de o óculos enviá-lo como botão de mídia, o que pode variar com o modelo e o firmware.
+
 ## Instalar o APK
 
 1. Abra a release **"Claude Voz (APK mais recente)"** do repositório (tag `claude-voz-latest`)
@@ -59,5 +76,6 @@ na Play Store, configure uma chave de assinatura própria em `app/build.gradle.k
 
 - `ClaudeChat.kt` — cliente do Claude (histórico da ligação, streaming, erros).
 - `VoiceCallController.kt` — laço ouvir → pensar → falar e interrupções.
+- `GlassesAudio.kt` — roteia microfone e alto-falante para o óculos/fone Bluetooth.
 - `SentenceSplitter.kt` — quebra a resposta em frases e remove markdown antes de falar.
 - `MainActivity.kt` / `SettingsActivity.kt` — telas.

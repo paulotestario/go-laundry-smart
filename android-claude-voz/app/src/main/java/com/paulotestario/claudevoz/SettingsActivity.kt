@@ -3,6 +3,7 @@ package com.paulotestario.claudevoz
 import android.os.Bundle
 import android.widget.ArrayAdapter
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.SeekBar
 import android.widget.Spinner
@@ -32,6 +33,8 @@ class SettingsActivity : AppCompatActivity() {
         val rate = findViewById<SeekBar>(R.id.rate)
         val rateLabel = findViewById<TextView>(R.id.rateLabel)
         val personality = findViewById<EditText>(R.id.personality)
+        val useGlasses = findViewById<CheckBox>(R.id.useGlasses)
+        useGlasses.isChecked = prefs.useGlasses
 
         apiKey.setText(prefs.apiKey)
         personality.setText(prefs.personality)
@@ -66,6 +69,7 @@ class SettingsActivity : AppCompatActivity() {
             prefs.language = languages[language.selectedItemPosition].first
             prefs.speechRate = rateOf(rate.progress)
             prefs.personality = personality.text.toString()
+            prefs.useGlasses = useGlasses.isChecked
             Toast.makeText(this, R.string.saved, Toast.LENGTH_SHORT).show()
             finish()
         }
