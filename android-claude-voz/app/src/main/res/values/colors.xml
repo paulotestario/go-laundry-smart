@@ -1,0 +1,12 @@
+<resources>
+    <color name="bg">#FF141413</color>
+    <color name="surface">#FF1F1E1D</color>
+    <color name="text">#FFF5F4EE</color>
+    <color name="text_muted">#FFA8A69E</color>
+    <color name="claude_accent">#FFD97757</color>
+    <color name="claude_accent_dark">#FFB85C3E</color>
+    <color name="user_text">#FF8FB8DE</color>
+    <color name="green">#FF2EAD5B</color>
+    <color name="red">#FFE5484D</color>
+    <color name="button_gray">#FF3A3936</color>
+</resources>

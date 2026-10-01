@@ -1,0 +1,59 @@
+name: APK Android - Claude Voz
+
+on:
+  push:
+    paths:
+      - "android-claude-voz/**"
+      - ".github/workflows/android-claude-voz.yml"
+  pull_request:
+    paths:
+      - "android-claude-voz/**"
+      - ".github/workflows/android-claude-voz.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: android-claude-voz
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Compilar APK
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleRelease
+          cp app/build/outputs/apk/release/app-release.apk ClaudeVoz.apk
+
+      - name: Anexar APK ao workflow
+        uses: actions/upload-artifact@v4
+        with:
+          name: ClaudeVoz-apk
+          path: android-claude-voz/ClaudeVoz.apk
+
+      - name: Publicar APK numa release (download direto pelo celular)
+        if: github.event_name != 'pull_request'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: claude-voz-latest
+          name: Claude Voz (APK mais recente)
+          prerelease: true
+          make_latest: false
+          body: |
+            APK do app **Claude Voz** — ligação de voz com o Claude.
+            Gerado a partir do commit ${{ github.sha }} (branch ${{ github.ref_name }}).
+            Baixe o arquivo `ClaudeVoz.apk` no celular e instale (permita "instalar apps desconhecidos").
+          files: android-claude-voz/ClaudeVoz.apk
+          overwrite_files: true

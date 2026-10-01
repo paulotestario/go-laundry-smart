@@ -1,0 +1,30 @@
+<resources>
+    <string name="app_name">Claude Voz</string>
+    <string name="state_idle">Toque para ligar para o Claude</string>
+    <string name="state_connecting">Conectando…</string>
+    <string name="state_listening">Ouvindo…</string>
+    <string name="state_thinking">Pensando… (toque para interromper)</string>
+    <string name="state_speaking">Falando… (toque para interromper)</string>
+    <string name="state_muted">Microfone mudo</string>
+    <string name="call">Ligar</string>
+    <string name="hang_up">Desligar</string>
+    <string name="mute">Silenciar microfone</string>
+    <string name="unmute">Ativar microfone</string>
+    <string name="settings">Configurações</string>
+    <string name="you">Você</string>
+    <string name="claude">Claude</string>
+    <string name="mic_needed">O app precisa do microfone para a ligação de voz.</string>
+    <string name="need_key">Configure sua chave de API da Anthropic primeiro.</string>
+    <string name="no_recognizer">Este aparelho não tem reconhecimento de voz. Instale/ative o app Google.</string>
+    <string name="api_key">Chave de API da Anthropic</string>
+    <string name="api_key_hint">sk-ant-…</string>
+    <string name="api_key_help">Crie uma chave em platform.claude.com → API Keys. Ela fica salva só neste aparelho.</string>
+    <string name="model">Modelo</string>
+    <string name="language">Idioma da voz</string>
+    <string name="speech_rate">Velocidade da fala</string>
+    <string name="speech_rate_value">Velocidade da fala: %.1fx</string>
+    <string name="personality">Instruções extras (opcional)</string>
+    <string name="personality_hint">Ex.: me chame de Paulo e responda com bom humor</string>
+    <string name="save">Salvar</string>
+    <string name="saved">Configurações salvas</string>
+</resources>
