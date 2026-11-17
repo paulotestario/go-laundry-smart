@@ -24,6 +24,7 @@ Detalhes e histórico das decisões de arquitetura em [CONTEXTO.md](CONTEXTO.md)
 │   └── fluxo-lavanderia-v2.mermaid  # Diagrama v2 (device por máquina — decisão final)
 └── demo/
     ├── qrcode-fluxo-completo.mp4 # Vídeo demo: escanear → instalar → notificação (16s)
+    ├── qrcode-fluxo-completo-locucao.mp4 # Mesmo vídeo com locução (ElevenLabs)
     └── video-scene*.html         # Fontes das animações do vídeo (material de apresentação)
 ```
 
